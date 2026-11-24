@@ -101,3 +101,44 @@ A unique constraint on `(schedule, scheduled_at)` means the same dose can never 
   only **future pending** doses. Taken, missed, skipped and reminded doses and anything in the past are never touched.
 - **History**: dose events store the patient and medication directly; deleting a schedule sets `schedule` to NULL
   and keeps the history. Medications with dose history cannot be hard-deleted (deactivate them instead).
+
+## Reminders (notifications app)
+
+Celery Beat runs `notifications.tasks.dispatch_reminders` every minute and `notifications.tasks.mark_missed_doses`
+every 5 minutes. Email is the real channel (console backend in development, so reminders are printed in the worker
+terminal). `SmsChannel` and `WhatsAppChannel` are log-only stubs behind the same `NotificationChannel` interface;
+enable channels with `NOTIFICATION_CHANNELS` (default `email`). Patients with a channel switched off in their
+`notification_preferences` are skipped for that channel.
+
+**Pipeline (claim, then send):**
+1. *Claim* (one short transaction): `SELECT … FOR UPDATE SKIP LOCKED` on pending doses due in
+   `[now − grace, now + lead]`, mark them `reminded`, and insert one `NotificationLog` per channel with status
+   `sending` and a one-time lease token (`(dose_event, channel)` is unique). Commit.
+2. *Send* (no transaction held): the delivery task swaps the lease token with a conditional UPDATE. Only the
+   one caller that wins the swap sends. It then records `sent`, or the error plus a retry with exponential backoff
+   (60 s, 120 s, 240 s …), or `failed` after `REMINDER_MAX_ATTEMPTS`.
+3. *Recover*: a `sending` row whose lease expired (worker died mid-send, or the task was never queued) is given a
+   new lease and sent. The old token is dead, so a late copy of the old task sends nothing.
+
+**Delivery guarantee: at-least-once per dose and channel.** A reminder is sent twice only in one narrow window: the
+mail server accepted the message and the worker then died (or lost its database connection) before committing
+`sent`. Recovery resends it after `REMINDER_SENDING_TIMEOUT_SECONDS` (default 10 min), with the same `Message-ID`
+header. Two workers, overlapping Beat ticks, task retries and broker redeliveries cannot cause a duplicate.
+At-least-once was chosen because a rare duplicate reminder is less harmful than a silently lost one. The full
+reasoning is in the docstring of `notifications/services.py`.
+
+Doses still untaken `DOSE_MISSED_AFTER_MINUTES` after their time become `missed` (with `missed_at`), whether they
+were reminded or not. A dose more than `REMINDER_GRACE_MINUTES` late (workers down that long) is not reminded.
+
+| Setting (env var) | Default | Meaning |
+|---|---|---|
+| `REMINDER_LEAD_SECONDS` | 60 | Send this long before the dose time |
+| `REMINDER_GRACE_MINUTES` | 60 | Still send this late (e.g. after worker downtime) |
+| `REMINDER_SENDING_TIMEOUT_SECONDS` | 600 | Lease; a `sending` row older than this is recovered |
+| `REMINDER_MAX_ATTEMPTS` | 5 | Attempts before a reminder is recorded as `failed` |
+| `REMINDER_RETRY_BASE_SECONDS` | 60 | First retry delay; doubles each attempt |
+| `DOSE_MISSED_AFTER_MINUTES` | 120 | Untaken this long after its time → `missed` |
+| `EMAIL_TIMEOUT` | 30 | Seconds per SMTP send (the task is hard-killed at +30 s) |
+| `NOTIFICATION_CHANNELS` | `email` | Comma-separated: `email`, `sms`, `whatsapp` |
+
+Settings refuse a grace period at or above the missed window, and a lease shorter than twice the send time limit.

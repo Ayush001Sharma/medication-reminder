@@ -16,9 +16,10 @@ from pathlib import Path
 
 import dj_database_url
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
-from .env import normalize_redis_url, require_env
+from .env import env_int, env_list, normalize_redis_url, require_env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -149,12 +150,44 @@ CELERY_BEAT_SCHEDULE = {
         "task": "scheduling.tasks.generate_upcoming_doses",
         "schedule": crontab(minute=10, hour=0),  # daily, 00:10 UTC
     },
+    "dispatch-reminders": {
+        "task": "notifications.tasks.dispatch_reminders",
+        "schedule": crontab(),  # every minute
+    },
+    "mark-missed-doses": {
+        "task": "notifications.tasks.mark_missed_doses",
+        "schedule": crontab(minute="*/5"),
+    },
 }
 
 # --- Email (console backend in development) ---------------------------------
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "reminders@medreminder.local")
+EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 30)  # seconds; bounds one SMTP send
+
+# --- Reminders (see notifications/services.py for the delivery guarantee) ---
+NOTIFICATION_CHANNELS = env_list("NOTIFICATION_CHANNELS", "email")
+REMINDER_LEAD_SECONDS = env_int("REMINDER_LEAD_SECONDS", 60)  # send this early
+REMINDER_GRACE_MINUTES = env_int("REMINDER_GRACE_MINUTES", 60)  # still send this late
+REMINDER_SENDING_TIMEOUT_SECONDS = env_int("REMINDER_SENDING_TIMEOUT_SECONDS", 600)
+REMINDER_MAX_ATTEMPTS = env_int("REMINDER_MAX_ATTEMPTS", 5)
+REMINDER_RETRY_BASE_SECONDS = env_int("REMINDER_RETRY_BASE_SECONDS", 60)
+REMINDER_BATCH_SIZE = env_int("REMINDER_BATCH_SIZE", 200)
+DOSE_MISSED_AFTER_MINUTES = env_int("DOSE_MISSED_AFTER_MINUTES", 120)
+
+# A send task is hard-killed after EMAIL_TIMEOUT + 30s; the "sending" lease
+# must comfortably outlive that, or recovery could resend a live send.
+if REMINDER_SENDING_TIMEOUT_SECONDS < 2 * (EMAIL_TIMEOUT + 30):
+    raise ImproperlyConfigured(
+        "REMINDER_SENDING_TIMEOUT_SECONDS must be at least 2 x (EMAIL_TIMEOUT + 30)."
+    )
+# A dose must stop being remindable before it can be marked missed.
+if REMINDER_GRACE_MINUTES >= DOSE_MISSED_AFTER_MINUTES:
+    raise ImproperlyConfigured(
+        "REMINDER_GRACE_MINUTES must be smaller than DOSE_MISSED_AFTER_MINUTES."
+    )
 
 # --- DRF --------------------------------------------------------------------
 REST_FRAMEWORK = {

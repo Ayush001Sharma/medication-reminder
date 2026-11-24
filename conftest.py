@@ -38,3 +38,13 @@ def patient_api(patient):
 @pytest.fixture
 def other_api(other_patient):
     return client_for(other_patient)
+
+
+@pytest.fixture(autouse=True)
+def celery_eager():
+    """Run Celery tasks in-process (and in the calling thread) during tests."""
+    from config.celery import app
+
+    app.conf.task_always_eager = True
+    app.conf.task_eager_propagates = True
+    yield

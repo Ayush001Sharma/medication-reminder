@@ -85,6 +85,9 @@ class DoseEvent(models.Model):
     )
     reminder_sent_at = models.DateTimeField(null=True, blank=True)
     taken_at = models.DateTimeField(null=True, blank=True)
+    missed_at = models.DateTimeField(
+        null=True, blank=True, help_text="When the dose was marked missed (for reports)."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

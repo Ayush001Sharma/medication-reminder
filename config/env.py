@@ -16,6 +16,22 @@ def require_env(name: str) -> str:
     return value
 
 
+def env_int(name: str, default: int) -> int:
+    """Read an integer environment variable, failing clearly on bad input."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ImproperlyConfigured(f"{name} must be an integer, got {raw!r}.")
+
+
+def env_list(name: str, default: str) -> list[str]:
+    """Comma-separated environment variable as a list of non-empty items."""
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
 def normalize_redis_url(url: str) -> str:
     """Make sure a TLS (rediss://) URL has ssl_cert_reqs; default to 'required'.
 
