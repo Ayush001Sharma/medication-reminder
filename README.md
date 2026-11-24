@@ -68,3 +68,17 @@ The custom user model (`accounts.User`) must exist from the first migration: if 
 migrated before it was added, recreate the dev database (`dropdb medreminder && createdb medreminder`).
 
 Doctor and caregiver verification (confirming real credentials or identity) is out of scope for this project.
+
+## Medications and schedules API (patients only)
+
+| Endpoint | Purpose |
+|---|---|
+| `GET/POST /api/medications/` | list (`?active=true\|false`) / create |
+| `GET/PATCH /api/medications/{id}/` | read / update |
+| `POST /api/medications/{id}/deactivate/` | stop a medication; history is kept (no DELETE) |
+| `GET/POST /api/medications/{id}/schedules/` | list / create schedules |
+| `GET/PATCH/DELETE /api/medications/{id}/schedules/{sid}/` | read / update / delete a schedule |
+
+Schedule `times_of_day` are local wall-clock `HH:MM` strings in the patient's timezone (stored naive, converted
+to UTC only when doses are generated, so DST is handled there). `days_of_week` is 0=Monday..6=Sunday, default every day.
+Patients only see their own data; other patients' ids return 404, caregivers/doctors get 403.
