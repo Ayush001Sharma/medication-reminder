@@ -7,3 +7,8 @@ db.sqlite3
 staticfiles/
 *.log
 celerybeat-schedule*
+
+# Test and coverage output
+.coverage
+coverage.xml
+htmlcov/

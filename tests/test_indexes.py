@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from django.db import connection
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -82,7 +82,41 @@ def test_retry_scan_can_use_the_sending_index():
     assert "notif_sending_idx" in plan(qs)
 
 
+def drop_competing_patient_index():
+    """Remove the plain patient_id foreign-key index for the rest of this test's transaction.
+
+    PostgreSQL DDL is transactional, so the test's rollback restores it. Whether the planner PREFERS the
+    covering index depends on table maintenance (an index-only scan only pays off once VACUUM has marked pages
+    all-visible, which a test table never gets), so the test asks the question that is always answerable:
+    is the covering index USABLE for the report's query?
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT indexname FROM pg_indexes WHERE tablename = 'scheduling_doseevent' "
+            "AND indexdef LIKE '%%(patient_id)%%' AND indexname NOT LIKE 'dose\\_%%'"
+        )
+        for (name,) in cursor.fetchall():
+            cursor.execute(f'DROP INDEX "{name}"')
+
+
+def test_report_aggregate_can_use_the_covering_index(patient):
+    drop_competing_patient_index()
+    now = timezone.now()
+    qs = (
+        DoseEvent.objects.filter(
+            patient=patient, scheduled_at__gte=now - timedelta(days=30), scheduled_at__lt=now,
+            status__in=["taken", "missed", "skipped"],
+        )
+        .order_by()
+        .values("medication_id")
+        .annotate(taken=Count("status", filter=Q(status="taken")),
+                  late=Count("status", filter=Q(status="taken", taken_late=True)))
+    )
+    assert "dose_patient_cover_idx" in plan(qs)
+
+
 def test_patient_time_range_can_use_the_covering_index(patient):
+    drop_competing_patient_index()
     now = timezone.now()
     qs = DoseEvent.objects.filter(patient=patient, scheduled_at__gte=now - timedelta(days=30), scheduled_at__lt=now)
     assert "dose_patient_cover_idx" in plan(qs)
