@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/", include("accounts.urls")),
     path("api/", include("medications.urls")),
     path("api/", include("scheduling.urls")),
+    path("api/", include("reports.urls")),
     path("dose/taken/<str:token>/", dose_link, name="dose-link"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

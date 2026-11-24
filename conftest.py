@@ -64,3 +64,32 @@ def make_dose(patient, scheduled_at, status="pending", **extra):
     return DoseEvent.objects.create(
         patient=patient, medication=med, scheduled_at=scheduled_at, status=status, **extra
     )
+
+
+def make_grant(patient, grantee, status="active"):
+    """An AccessGrant in the given state (default: already accepted)."""
+    from django.utils import timezone
+
+    from accounts.models import AccessGrant
+
+    extra = {}
+    if status != "pending":
+        extra["grantee"] = grantee
+        extra["accepted_at"] = timezone.now()
+    if status == "revoked":
+        extra["revoked_at"] = timezone.now()
+    return AccessGrant.objects.create(
+        patient=patient, invited_email=grantee.email.lower(), status=status, **extra
+    )
+
+
+@pytest.fixture
+def caregiver(db):
+    from accounts.models import Role
+    return make_user("caregiver@example.com", Role.CAREGIVER)
+
+
+@pytest.fixture
+def doctor(db):
+    from accounts.models import Role
+    return make_user("doctor@example.com", Role.DOCTOR)

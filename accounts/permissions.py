@@ -24,3 +24,13 @@ class IsCaregiver(HasRole):
 
 class IsDoctor(HasRole):
     role = Role.DOCTOR
+
+
+class IsGrantee(BasePermission):
+    """Caregivers and doctors: the roles that can be granted access to a patient."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user and user.is_authenticated and user.role in (Role.CAREGIVER, Role.DOCTOR)
+        )

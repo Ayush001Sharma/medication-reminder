@@ -159,6 +159,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "notifications.tasks.mark_missed_doses",
         "schedule": crontab(minute="*/5"),
     },
+    "send-weekly-summaries": {
+        "task": "reports.tasks.send_weekly_summaries",
+        "schedule": crontab(minute=20),  # hourly; each patient's week ends at a different UTC time
+    },
 }
 
 # --- Email (console backend in development) ---------------------------------
@@ -203,6 +207,10 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "DoseStatusEnum": "scheduling.models.DoseStatus",
+        "GrantStatusEnum": "accounts.models.GrantStatus",
+    },
 }
 
 AUTH_USER_MODEL = "accounts.User"
@@ -220,3 +228,10 @@ SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "http://localhost:8000")
 # known key would make them forgeable.
 if not DEBUG and SECRET_KEY == _DEV_SECRET_KEY:
     raise ImproperlyConfigured("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is not true.")
+
+# --- Weekly adherence summary ---------------------------------------------------
+# Sent once the patient's local week (Mon-Sun) has ended, from this local hour on Monday.
+WEEKLY_SUMMARY_LOCAL_HOUR = env_int("WEEKLY_SUMMARY_LOCAL_HOUR", 8)
+WEEKLY_SUMMARY_MAX_ATTEMPTS = 3
+if not 0 <= WEEKLY_SUMMARY_LOCAL_HOUR <= 23:
+    raise ImproperlyConfigured("WEEKLY_SUMMARY_LOCAL_HOUR must be between 0 and 23.")

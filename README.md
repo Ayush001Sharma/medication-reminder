@@ -167,3 +167,64 @@ POST marks the dose taken. Using the link twice is safe. The POST is CSRF-exempt
 signed token is the credential. Pages are sent with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
 Set `SITE_BASE_URL` to your public address, and `DJANGO_SECRET_KEY` (required when `DJANGO_DEBUG` is not `true`), since links
 are signed with it. In development the console email backend prints the full link in the worker output.
+
+## Access sharing
+
+A patient shares data with caregivers and doctors through an `AccessGrant` (`pending` → `active` → `revoked`).
+
+| Endpoint | Who | Purpose |
+|---|---|---|
+| `POST /api/access/grants/` `{"email": ...}` | patient | invite by email (always `202` with the same body) |
+| `GET /api/access/grants/` | patient | list your grants and their status |
+| `POST /api/access/grants/{id}/revoke/` | patient | revoke a pending or active grant, at any time |
+| `GET /api/access/invitations/` | caregiver/doctor | pending invitations addressed to your email |
+| `POST /api/access/invitations/{id}/accept/` | caregiver/doctor | accept (only the invited email can) |
+| `GET /api/patients/` | caregiver/doctor | patients who currently grant you access |
+
+- **No account enumeration.** An invitation is addressed to an email and returns the same status and body whether or not
+  an account exists (or the address is already invited), and a pending grant looks identical in every case. The grantee is
+  linked only when a caregiver/doctor account with that email accepts. Patient accounts cannot accept.
+- **One open grant per pair.** A partial unique constraint allows one pending or active grant per patient and email
+  (even for simultaneous requests). Revoked grants are kept as history and the same person can be invited again.
+- **Revoking is immediate.** Every request checks the grant in the database. Nothing is cached, and grants are not
+  stored in the JWT. A grantee with no active grant gets `404`, the same answer as for a patient that does not exist.
+
+## Adherence report
+
+`GET /api/reports/adherence/?patient=<id>&from=YYYY-MM-DD&to=YYYY-MM-DD` (patients omit `patient`; caregivers and doctors
+must pass it and need an active grant). Interactive docs are at `/api/docs/`.
+
+**Definition** (also in `reports/services.py` and returned in the response):
+
+- Only doses that are **due** (`scheduled_at <= now`) and **resolved** are counted. `pending`, `reminded` and future doses
+  are never counted.
+- `adherence % = taken / (taken + missed) × 100`, rounded to one decimal; `null` when there is no taken or missed dose.
+- A dose taken after it was already missed counts as **taken** and is also reported separately as `taken_late`.
+- **Skipped** doses are reported separately and are **not** part of the percentage.
+- `total = taken + missed + skipped`. The response also has a per-medication breakdown with the same fields.
+- `current_streak` = consecutive taken doses ending now; a missed dose ends it, skipped and unresolved doses are ignored.
+  It is "as of now" and does not depend on the range.
+- **Dates** are the patient's **local** calendar dates, both inclusive, defaulting to the last 30 days. The maximum range is
+  **366 days**. Boundaries are local midnights, so DST days are handled.
+- It is computed with four database aggregate queries (no per-dose Python loops), however many doses there are.
+
+## Audit log
+
+Every time a caregiver or doctor views a patient's report, an `AuditLog` row records the viewer (email and role are copied
+so the entry survives account deletion), the patient, the local date range and the time. It is written **before** any data
+is returned, and a failed audit write means no data is returned. Weekly summary emails sent to a grantee are logged too
+(`action: weekly_summary`). Patients read their own log, newest first, at `GET /api/audit-log/` (paginated). A patient
+viewing their own report is not logged, and neither are denied or invalid requests.
+
+## Weekly summary email
+
+Celery Beat runs `reports.tasks.send_weekly_summaries` every hour (at :20). A patient's week is **Monday to Sunday in
+their own timezone**. From `WEEKLY_SUMMARY_LOCAL_HOUR` (default 08:00) local time on the following Monday, the latest
+finished week is emailed to the patient (unless their email preference is off) and to every grantee with an **active** grant
+at that moment (re-checked just before sending, so a revocation wins). Patients with no resolved doses that week get none.
+
+It is safe to run twice: a `WeeklySummary` row, unique per **(patient, week, recipient)**, is inserted before sending, so a
+second or overlapping run cannot send the same summary again. A failed send is marked `failed` and retried on later runs
+(up to 3 attempts, claimed with a conditional update so only one run wins). The delivery guarantee is **at-most-once** per
+recipient and week: if a worker dies after claiming a row but before finishing, that summary is not resent (a rare lost
+digest is preferred over a duplicate).
