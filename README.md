@@ -51,3 +51,18 @@ curl localhost:8000/health/        # {"status": "OK", "database": "ok", "redis":
 python manage.py shell -c "from notifications.tasks import ping; print(ping.delay().get(timeout=10))"   # pong
 pytest
 ```
+
+## Accounts API
+
+Interactive docs: http://localhost:8000/api/docs/ (schema at `/api/schema/`).
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/auth/register/` | email, password, role (`patient`/`caregiver`/`doctor`), `timezone` (required for patients, IANA), optional `phone_number` |
+| `POST /api/auth/login/` | email + password → `access` and `refresh` JWTs |
+| `POST /api/auth/refresh/` | `refresh` → new `access` |
+| `GET/PATCH /api/me/` | current user (and patient profile); role and email are read-only |
+
+Role permission classes live in `accounts/permissions.py`: `IsPatient`, `IsCaregiver`, `IsDoctor`.
+The custom user model (`accounts.User`) must exist from the first migration: if you have a database
+migrated before it was added, recreate the dev database (`dropdb medreminder && createdb medreminder`).
