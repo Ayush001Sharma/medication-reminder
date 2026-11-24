@@ -66,3 +66,5 @@ Interactive docs: http://localhost:8000/api/docs/ (schema at `/api/schema/`).
 Role permission classes live in `accounts/permissions.py`: `IsPatient`, `IsCaregiver`, `IsDoctor`.
 The custom user model (`accounts.User`) must exist from the first migration: if you have a database
 migrated before it was added, recreate the dev database (`dropdb medreminder && createdb medreminder`).
+
+Doctor and caregiver verification (confirming real credentials or identity) is out of scope for this project.
