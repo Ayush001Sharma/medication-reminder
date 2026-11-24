@@ -1,8 +1,10 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from medications.utils import patient_today
+from medications.models import Medication
+from medications.utils import patient_timezone, patient_today
 
-from .models import Schedule
+from .models import DoseEvent, Schedule
 
 
 class ScheduleSerializer(serializers.ModelSerializer):
@@ -49,3 +51,30 @@ class ScheduleSerializer(serializers.ModelSerializer):
         if start and end and end < start:
             raise serializers.ValidationError({"end_date": "End date cannot be before start date."})
         return attrs
+
+
+class MedicationBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Medication
+        fields = ["id", "name", "dosage", "instructions"]
+        read_only_fields = fields
+
+
+class DoseSerializer(serializers.ModelSerializer):
+    """A dose as the patient sees it: UTC instant plus their local time."""
+
+    medication = MedicationBriefSerializer(read_only=True)
+    scheduled_local = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DoseEvent
+        fields = [
+            "id", "medication", "scheduled_at", "scheduled_local", "status",
+            "reminder_sent_at", "taken_at", "taken_late", "missed_at",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.DateTimeField())
+    def get_scheduled_local(self, dose) -> str:
+        tz = patient_timezone(self.context["request"].user)
+        return dose.scheduled_at.astimezone(tz).isoformat()

@@ -88,6 +88,10 @@ class DoseEvent(models.Model):
     missed_at = models.DateTimeField(
         null=True, blank=True, help_text="When the dose was marked missed (for reports)."
     )
+    taken_late = models.BooleanField(
+        default=False,
+        help_text="True when the dose was marked taken after it had already become missed.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

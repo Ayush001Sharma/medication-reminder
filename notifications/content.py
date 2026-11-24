@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from django.conf import settings
 
 from medications.utils import patient_timezone
+from scheduling.links import dose_link
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ def build_reminder(log) -> ReminderMessage:
     lines = [f"It's time to take {med.name} ({med.dosage}).", f"Scheduled for {when}."]
     if med.instructions:
         lines.append(f"Instructions: {med.instructions}")
+    lines.append(f"Mark it as taken (one click): {dose_link(dose)}")
     profile = getattr(patient, "patient_profile", None)
     return ReminderMessage(
         idempotency_key=f"dose-reminder-{log.pk}",

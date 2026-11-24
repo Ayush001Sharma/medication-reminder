@@ -19,6 +19,8 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from scheduling.views import dose_link
+
 from .health import health
 
 urlpatterns = [
@@ -26,6 +28,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("accounts.urls")),
     path("api/", include("medications.urls")),
+    path("api/", include("scheduling.urls")),
+    path("dose/taken/<str:token>/", dose_link, name="dose-link"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
 ]

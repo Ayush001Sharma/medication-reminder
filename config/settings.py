@@ -32,7 +32,8 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me-not-for-production-use")
+_DEV_SECRET_KEY = "dev-only-insecure-key-change-me-not-for-production-use"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", _DEV_SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
@@ -210,3 +211,12 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
+
+# --- One-click dose links (signed, see scheduling/links.py) ------------------
+# Public base URL used to build links in emails (no secret).
+SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "http://localhost:8000")
+
+# Dose links are bearer credentials signed with SECRET_KEY, so a publicly
+# known key would make them forgeable.
+if not DEBUG and SECRET_KEY == _DEV_SECRET_KEY:
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is not true.")

@@ -48,3 +48,19 @@ def celery_eager():
     app.conf.task_always_eager = True
     app.conf.task_eager_propagates = True
     yield
+
+
+def make_dose(patient, scheduled_at, status="pending", **extra):
+    """A DoseEvent without a schedule (history-style), independent of generation."""
+    from datetime import date
+
+    from medications.models import Medication
+    from scheduling.models import DoseEvent
+
+    med = Medication.objects.filter(patient=patient).first() or Medication.objects.create(
+        patient=patient, name="Metformin", dosage="500 mg", instructions="With food",
+        start_date=date(2026, 1, 1),
+    )
+    return DoseEvent.objects.create(
+        patient=patient, medication=med, scheduled_at=scheduled_at, status=status, **extra
+    )

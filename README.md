@@ -142,3 +142,28 @@ were reminded or not. A dose more than `REMINDER_GRACE_MINUTES` late (workers do
 | `NOTIFICATION_CHANNELS` | `email` | Comma-separated: `email`, `sms`, `whatsapp` |
 
 Settings refuse a grace period at or above the missed window, and a lease shorter than twice the send time limit.
+
+## Dose actions API (patients only)
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/doses/today/` | every dose in the patient's local day (UTC `scheduled_at` plus `scheduled_local`) |
+| `GET /api/doses/upcoming/?days=7` | pending/reminded doses from now on (1-30 days, default 7) |
+| `POST /api/doses/{id}/taken/` | mark taken; records `taken_at` |
+| `POST /api/doses/{id}/skip/` | mark skipped |
+
+Rules: `pending`, `reminded` and `missed` doses can be marked taken. A missed dose marked taken keeps `missed_at` and is
+flagged `taken_late=true`, so reports can tell it apart. Pending/reminded doses can be skipped. Repeating an action is a
+no-op that returns the same dose (200). A taken dose is final: it cannot be skipped, and the missed-dose job never touches
+it. Other conflicts return 409. Another patient's dose id returns 404. Each action locks the dose row, so simultaneous
+requests (double click, link plus app, the missed job) are serialised.
+
+### One-click link in the reminder email
+
+The email contains `SITE_BASE_URL/dose/taken/<token>/`. The token is a `django.core.signing` value carrying the dose id and
+the patient id; it expires after 24 hours and cannot act on any other dose. **Opening the link (GET or HEAD) changes
+nothing**, because mail scanners and link previews prefetch URLs: it shows a small confirmation page, and only that page's
+POST marks the dose taken. Using the link twice is safe. The POST is CSRF-exempt on purpose: there is no session, and the
+signed token is the credential. Pages are sent with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+Set `SITE_BASE_URL` to your public address, and `DJANGO_SECRET_KEY` (required when `DJANGO_DEBUG` is not `true`), since links
+are signed with it. In development the console email backend prints the full link in the worker output.
