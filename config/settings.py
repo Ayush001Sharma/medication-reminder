@@ -15,6 +15,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 from .env import normalize_redis_url, require_env
@@ -143,6 +144,12 @@ CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_ACKS_LATE = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULE = {
+    "generate-upcoming-doses": {
+        "task": "scheduling.tasks.generate_upcoming_doses",
+        "schedule": crontab(minute=10, hour=0),  # daily, 00:10 UTC
+    },
+}
 
 # --- Email (console backend in development) ---------------------------------
 EMAIL_BACKEND = os.environ.get(

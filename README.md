@@ -82,3 +82,22 @@ Doctor and caregiver verification (confirming real credentials or identity) is o
 Schedule `times_of_day` are local wall-clock `HH:MM` strings in the patient's timezone (stored naive, converted
 to UTC only when doses are generated, so DST is handled there). `days_of_week` is 0=Monday..6=Sunday, default every day.
 Patients only see their own data; other patients' ids return 404, caregivers/doctors get 403.
+
+## Dose events
+
+`scheduling.DoseEvent` is one concrete dose at a UTC instant (`pending`, `reminded`, `taken`, `missed`, `skipped`).
+A unique constraint on `(schedule, scheduled_at)` means the same dose can never exist twice.
+
+- **Generation** (`scheduling/services.py`): `generate_dose_events(schedule, from_date, to_date)` converts the
+  schedule's local times to UTC with the patient's IANA zone at generation time. It is idempotent and only creates
+  doses in the future. Inactive schedules and inactive medications produce nothing. `days_of_week`, `start_date`
+  and `end_date` (of the schedule and of the medication) are local dates in the patient's zone.
+- **DST**: a local time that does not exist (spring-forward gap) is shifted forward by the gap (02:30 → 03:30);
+  a local time that happens twice (fall-back) is scheduled once, at its first occurrence.
+- **Daily job**: Celery Beat runs `scheduling.tasks.generate_upcoming_doses` at 00:10 UTC and keeps 7 days of future
+  doses for every active schedule. It is safe to re-run.
+- **On change**: creating or editing a schedule, changing or deactivating a medication, or changing the patient's
+  timezone resyncs doses straight away. Deleting or changing a schedule, or deactivating a medication, removes
+  only **future pending** doses. Taken, missed, skipped and reminded doses and anything in the past are never touched.
+- **History**: dose events store the patient and medication directly; deleting a schedule sets `schedule` to NULL
+  and keeps the history. Medications with dose history cannot be hard-deleted (deactivate them instead).
