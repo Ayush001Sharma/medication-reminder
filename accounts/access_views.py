@@ -3,6 +3,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.ratelimit import InviteThrottle
+
 from . import grants
 from .access import accessible_patients
 from .access_serializers import (
@@ -23,6 +25,10 @@ class GrantListCreateView(APIView):
     """Patient: list your grants, or invite a caregiver/doctor by email."""
 
     permission_classes = [IsPatient]
+
+    def get_throttles(self):
+        # Only sending invitations is limited; listing your own grants is not.
+        return [InviteThrottle()] if self.request.method == "POST" else []
 
     @extend_schema(responses=GrantSerializer(many=True))
     def get(self, request):

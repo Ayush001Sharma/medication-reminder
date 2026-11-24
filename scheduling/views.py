@@ -11,6 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from accounts.permissions import IsPatient
+from config.ratelimit import DoseLinkThrottle
 from medications.models import Medication
 from medications.utils import patient_timezone
 
@@ -133,7 +134,7 @@ class DoseViewSet(viewsets.GenericViewSet):
 
 
 # --- One-click link from the reminder email (no login) -------------------------
-PAGE_STATUS = {"ok": 200, "invalid": 400, "expired": 410, "conflict": 409, "missing": 404}
+PAGE_STATUS = {"ok": 200, "invalid": 400, "expired": 410, "conflict": 409, "missing": 404, "throttled": 429}
 
 
 def _page(request, state, message="", dose=None, can_confirm=False):
@@ -160,8 +161,14 @@ def dose_link(request, token):
     """Confirmation page (GET, read-only) and the actual change (POST).
 
     GET never writes: mail scanners and link previews prefetch URLs. The page
-    shows a button; only its POST marks the dose taken.
+    shows a button; only its POST marks the dose taken. Rate limited per client
+    address (429 with Retry-After), before the token is even checked.
     """
+    throttle = DoseLinkThrottle()
+    if not throttle.allow_request(request, None):
+        response = _page(request, "throttled", "Too many requests. Please wait a minute and try again.")
+        response["Retry-After"] = str(int(throttle.wait() or 60))
+        return response
     try:
         dose_id, patient_id = links.read_token(token)
     except links.LinkExpired:

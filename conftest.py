@@ -93,3 +93,15 @@ def caregiver(db):
 def doctor(db):
     from accounts.models import Role
     return make_user("doctor@example.com", Role.DOCTOR)
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache(settings):
+    """Rate-limit counters live in an in-memory cache that is emptied for every test,
+    so tests never share counters and never need Redis for them."""
+    from django.core.cache import cache
+
+    settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+    cache.clear()
+    yield
+    cache.clear()

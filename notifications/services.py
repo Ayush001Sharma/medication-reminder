@@ -50,6 +50,7 @@ Life of a reminder
    for a retry, or whose lease expired because a worker died mid-send.
 """
 import logging
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -58,6 +59,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
+from config.logging_utils import log_event
 from scheduling.models import DoseEvent, DoseStatus
 
 from . import conf
@@ -139,6 +141,12 @@ def claim_due_doses(*, now: datetime | None = None) -> list[Reservation]:
             ]
         DoseEvent.objects.filter(pk__in=reminded).update(status=DoseStatus.REMINDED)
         NotificationLog.objects.bulk_create(logs)
+        scheduled = {dose.pk: dose.scheduled_at for dose in doses}
+    for log in logs:  # after commit: only report claims that really exist
+        log_event(
+            logger, "reminder.claimed", log_id=log.pk, dose_id=log.dose_event_id,
+            channel=log.channel, lateness_s=round((now - scheduled[log.dose_event_id]).total_seconds()),
+        )
     return [Reservation(log.pk, log.lease_token) for log in logs]
 
 
@@ -158,13 +166,18 @@ def reserve_retries_and_stuck(*, now: datetime | None = None) -> list[Reservatio
             .filter(Q(lease_until__isnull=True) | Q(lease_until__lte=now))
             .order_by("next_attempt_at")[: conf.batch_size()]
         )
-        stuck = sum(1 for log in logs if log.lease_until is not None)
+        stuck = [log for log in logs if log.lease_until is not None]
         for log in logs:
             log.lease_token = uuid.uuid4()
             log.lease_until = now + conf.sending_timeout()
         NotificationLog.objects.bulk_update(logs, ["lease_token", "lease_until"])
-    if stuck:
-        logger.warning("Recovered %s notification(s) stuck in 'sending'", stuck)
+    for log in logs:
+        if log in stuck:  # lease expired: a worker died mid-send (or the task was never queued)
+            log_event(logger, "reminder.recovered", logging.WARNING, log_id=log.pk,
+                      dose_id=log.dose_event_id, channel=log.channel, attempts=log.attempts)
+        else:  # a scheduled retry whose backoff has elapsed
+            log_event(logger, "reminder.retry_due", log_id=log.pk, dose_id=log.dose_event_id,
+                      channel=log.channel, attempts=log.attempts)
     return [Reservation(log.pk, log.lease_token) for log in logs]
 
 
@@ -216,6 +229,7 @@ def deliver(log_id: int, token, *, now: datetime | None = None) -> str:
     now = now or timezone.now()
     owned = _acquire(log_id, token, now)
     if owned is None:
+        log_event(logger, "reminder.skipped", log_id=log_id, reason="lease_not_held")
         return "skipped"
     log = NotificationLog.objects.select_related(
         "dose_event__medication", "dose_event__patient__patient_profile"
@@ -224,8 +238,11 @@ def deliver(log_id: int, token, *, now: datetime | None = None) -> str:
     reason = _reason_not_to_send(log.dose_event, now)
     if reason:
         _finish(log_id, owned, status=NotificationStatus.CANCELLED, error=reason)
+        log_event(logger, "reminder.cancelled", log_id=log_id, dose_id=log.dose_event_id,
+                  channel=log.channel, dose_status=log.dose_event.status)
         return "cancelled"
 
+    started = time.monotonic()
     try:  # No transaction or row lock is held while talking to the provider.
         get_channel(log.channel).send(build_reminder(log))
     except Exception as exc:  # noqa: BLE001 - any failure is a failed attempt
@@ -237,7 +254,13 @@ def deliver(log_id: int, token, *, now: datetime | None = None) -> str:
             reminder_sent_at=sent_at
         )
     else:
-        logger.warning("Notification %s sent after its lease was taken over", log_id)
+        log_event(logger, "reminder.lease_lost_after_send", logging.WARNING, log_id=log_id,
+                  dose_id=log.dose_event_id)
+    log_event(
+        logger, "reminder.sent", log_id=log_id, dose_id=log.dose_event_id, channel=log.channel,
+        attempt=log.attempts, send_ms=round((time.monotonic() - started) * 1000),
+        lateness_s=round((now - log.dose_event.scheduled_at).total_seconds()),
+    )
     return "sent"
 
 
@@ -246,10 +269,14 @@ def _record_failure(log: NotificationLog, owned: uuid.UUID, exc: Exception, now:
     error = f"{type(exc).__name__}: {exc}"[:1000]
     if log.attempts >= conf.max_attempts():
         _finish(log.pk, owned, status=NotificationStatus.FAILED, error=error)
-        logger.error("Notification %s failed permanently after %s attempts", log.pk, log.attempts)
+        log_event(logger, "reminder.failed", logging.ERROR, log_id=log.pk, dose_id=log.dose_event_id,
+                  channel=log.channel, attempts=log.attempts, error_type=type(exc).__name__)
         return "failed"
-    _finish(log.pk, owned, error=error, next_attempt_at=now + conf.retry_delay(log.attempts))
-    logger.warning("Notification %s attempt %s failed; will retry", log.pk, log.attempts)
+    retry_at = now + conf.retry_delay(log.attempts)
+    _finish(log.pk, owned, error=error, next_attempt_at=retry_at)
+    log_event(logger, "reminder.retry_scheduled", logging.WARNING, log_id=log.pk,
+              dose_id=log.dose_event_id, channel=log.channel, attempt=log.attempts,
+              error_type=type(exc).__name__, retry_at=retry_at.isoformat())
     return "retry"
 
 
@@ -261,7 +288,10 @@ def mark_missed_doses(*, now: datetime | None = None) -> int:
     has just been taken is never overwritten. ``missed_at`` records when.
     """
     now = now or timezone.now()
-    return DoseEvent.objects.filter(
+    count = DoseEvent.objects.filter(
         status__in=[DoseStatus.PENDING, DoseStatus.REMINDED],
         scheduled_at__lt=now - conf.missed_after(),
     ).update(status=DoseStatus.MISSED, missed_at=now)
+    if count:
+        log_event(logger, "dose.marked_missed", logging.WARNING, count=count)
+    return count

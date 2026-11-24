@@ -8,12 +8,11 @@ import sys
 from pathlib import Path
 
 import redis
-from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config.env import normalize_redis_url  # noqa: E402
+from config.env import load_env_file, normalize_redis_url  # noqa: E402
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_env_file(Path(__file__).resolve().parent.parent / ".env")
 url = os.environ.get("REDIS_URL")
 if not url:
     sys.exit("REDIS_URL is not set. Copy .env.example to .env first.")

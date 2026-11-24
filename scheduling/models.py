@@ -102,8 +102,24 @@ class DoseEvent(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["status", "scheduled_at"], name="dose_status_time_idx"),
-            models.Index(fields=["patient", "scheduled_at"], name="dose_patient_time_idx"),
+            # Hot path, every minute: "open" doses that are due. Partial, so it holds only the
+            # few upcoming doses (tiny) instead of the whole history, and the claim and the
+            # missed-dose job no longer scan per patient.
+            models.Index(
+                fields=["scheduled_at"], name="dose_open_idx",
+                condition=Q(status__in=["pending", "reminded"]),
+            ),
+            # A patient's doses in a time range (today / upcoming / reports). INCLUDE carries the
+            # columns the report aggregates, so the report is an index-only scan.
+            models.Index(
+                fields=["patient", "scheduled_at"], name="dose_patient_cover_idx",
+                include=["status", "medication", "taken_late"],
+            ),
+            # "Latest missed dose" for the streak, constant time even for patients who never miss.
+            models.Index(
+                fields=["patient", "scheduled_at"], name="dose_patient_missed_idx",
+                condition=Q(status="missed"),
+            ),
         ]
 
     def __str__(self):

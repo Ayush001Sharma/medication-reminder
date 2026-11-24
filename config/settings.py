@@ -17,15 +17,17 @@ from pathlib import Path
 import dj_database_url
 from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
-from dotenv import load_dotenv
 
-from .env import env_int, env_list, normalize_redis_url, require_env
+from .env import (
+    env_bool, env_int, env_list, load_env_file, normalize_redis_url, require_env, validate_rate,
+    validate_secret_key,
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env when present (real environment variables take precedence).
-load_dotenv(BASE_DIR / ".env")
+load_env_file(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -36,7 +38,7 @@ _DEV_SECRET_KEY = "dev-only-insecure-key-change-me-not-for-production-use"
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", _DEV_SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
+DEBUG = env_bool("DJANGO_DEBUG", True)
 
 ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
 
@@ -146,6 +148,19 @@ CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_ACKS_LATE = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# Let the LOGGING setting below apply to the worker, and keep the console email
+# backend's output (development only) as plain text instead of log lines.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_WORKER_REDIRECT_STDOUTS = False
+
+# The cache (used for rate limits) lives in the same Redis as Celery, under its own key prefix.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "KEY_PREFIX": "medreminder",
+    }
+}
 CELERY_BEAT_SCHEDULE = {
     "generate-upcoming-doses": {
         "task": "scheduling.tasks.generate_upcoming_doses",
@@ -171,6 +186,12 @@ EMAIL_BACKEND = os.environ.get(
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "reminders@medreminder.local")
 EMAIL_TIMEOUT = env_int("EMAIL_TIMEOUT", 30)  # seconds; bounds one SMTP send
+# Only used when EMAIL_BACKEND is the SMTP backend (django.core.mail.backends.smtp.EmailBackend).
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = env_int("EMAIL_PORT", 587)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")  # secret: environment only
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 
 # --- Reminders (see notifications/services.py for the delivery guarantee) ---
 NOTIFICATION_CHANNELS = env_list("NOTIFICATION_CHANNELS", "email")
@@ -196,6 +217,9 @@ if REMINDER_GRACE_MINUTES >= DOSE_MISSED_AFTER_MINUTES:
 
 # --- DRF --------------------------------------------------------------------
 REST_FRAMEWORK = {
+    # 0 = trust only the socket address. Behind N reverse proxies set NUM_PROXIES=N, otherwise a
+    # client could send a fake X-Forwarded-For header and dodge the rate limits.
+    "NUM_PROXIES": env_int("NUM_PROXIES", 0),
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
@@ -224,10 +248,8 @@ SIMPLE_JWT = {
 # Public base URL used to build links in emails (no secret).
 SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "http://localhost:8000")
 
-# Dose links are bearer credentials signed with SECRET_KEY, so a publicly
-# known key would make them forgeable.
-if not DEBUG and SECRET_KEY == _DEV_SECRET_KEY:
-    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is not true.")
+# Dose links and JWTs are signed with SECRET_KEY, so a guessable key would make them forgeable.
+validate_secret_key(SECRET_KEY, debug=DEBUG, dev_key=_DEV_SECRET_KEY)
 
 # --- Weekly adherence summary ---------------------------------------------------
 # Sent once the patient's local week (Mon-Sun) has ended, from this local hour on Monday.
@@ -235,3 +257,30 @@ WEEKLY_SUMMARY_LOCAL_HOUR = env_int("WEEKLY_SUMMARY_LOCAL_HOUR", 8)
 WEEKLY_SUMMARY_MAX_ATTEMPTS = 3
 if not 0 <= WEEKLY_SUMMARY_LOCAL_HOUR <= 23:
     raise ImproperlyConfigured("WEEKLY_SUMMARY_LOCAL_HOUR must be between 0 and 23.")
+
+# --- Rate limits ("<count>/<sec|min|hour|day>") -------------------------------------
+RATE_LIMITS = {
+    "login": os.environ.get("RATE_LIMIT_LOGIN", "10/min"),  # per client address
+    "login_account": os.environ.get("RATE_LIMIT_LOGIN_ACCOUNT", "5/min"),  # per email address
+    "register": os.environ.get("RATE_LIMIT_REGISTER", "20/hour"),  # per client address
+    "invite": os.environ.get("RATE_LIMIT_INVITE", "20/hour"),  # per patient
+    "dose_link": os.environ.get("RATE_LIMIT_DOSE_LINK", "30/min"),  # per client address
+}
+for _scope, _rate in RATE_LIMITS.items():
+    validate_rate(f"RATE_LIMIT_{_scope.upper()}", _rate)
+
+# --- Logging (structured; see config/logging_utils.py) --------------------------------
+LOG_FORMAT = os.environ.get("LOG_FORMAT", "plain").lower()  # "plain" or "json"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+if LOG_FORMAT not in {"plain", "json"}:
+    raise ImproperlyConfigured("LOG_FORMAT must be 'plain' or 'json'.")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"structured": {"()": "config.logging_utils.StructuredFormatter", "style": LOG_FORMAT}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "structured"}},
+    "root": {"handlers": ["console"], "level": LOG_LEVEL},
+}
+
+# NOTE: never import DRF (or anything that imports it, such as config.ratelimit) in this
+# module: DRF would read REST_FRAMEWORK before it is defined and cache the defaults.

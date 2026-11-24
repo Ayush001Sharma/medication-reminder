@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Start local PostgreSQL and Redis for development (cloud environment, no Docker).
+# Start local PostgreSQL and Redis for development (Linux cloud environment, no Docker).
 # Idempotent: safe to re-run in a new session. Installs via apt if missing.
+#
+# LOCAL DEVELOPMENT ONLY. This creates a database role "medreminder" with the well-known password
+# "medreminder" and no more rights than the tests need (LOGIN + CREATEDB, not a superuser). Never
+# reuse that role or password anywhere reachable from a network. It is a convenience for this
+# container: the project itself does not need this script (see the README for Windows, macOS, Linux).
 set -euo pipefail
 
 DB_NAME="${DB_NAME:-medreminder}"
@@ -22,7 +27,9 @@ fi
 for _ in $(seq 1 20); do as_pg pg_isready -q && break || sleep 1; done
 # Local dev role + database (password is a dev-only placeholder, not a secret).
 as_pg psql -qtAc "SELECT 1 FROM pg_roles WHERE rolname='medreminder'" | grep -q 1 \
-  || as_pg psql -qc "CREATE ROLE medreminder LOGIN SUPERUSER PASSWORD 'medreminder'"
+  || as_pg psql -qc "CREATE ROLE medreminder LOGIN CREATEDB PASSWORD 'medreminder'"
+# Roles made by older versions of this script were superusers: take that right away.
+as_pg psql -qc "ALTER ROLE medreminder NOSUPERUSER CREATEDB"
 as_pg psql -qtAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 \
   || as_pg createdb -O medreminder "${DB_NAME}"
 

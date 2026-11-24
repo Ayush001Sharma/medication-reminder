@@ -1,7 +1,10 @@
 import logging
+import time
 
 from celery import shared_task
 from django.conf import settings
+
+from config.logging_utils import log_event
 
 from . import services
 
@@ -21,9 +24,13 @@ def dispatch_reminders() -> int:
     Claims are committed before tasks are queued. If queuing fails (e.g. the
     broker is down), the rows' leases expire and the next tick recovers them.
     """
+    started = time.monotonic()
     reservations = services.dispatch()
     for reservation in reservations:
         deliver_notification.delay(reservation.log_id, str(reservation.token))
+    if reservations:  # quiet minutes stay quiet
+        log_event(logger, "reminder.dispatch", reservations=len(reservations),
+                  duration_ms=round((time.monotonic() - started) * 1000))
     return len(reservations)
 
 
@@ -40,7 +47,4 @@ def deliver_notification(log_id: int, token: str) -> str:
 @shared_task(ignore_result=True)
 def mark_missed_doses() -> int:
     """Every 5 minutes: doses still untaken after DOSE_MISSED_AFTER_MINUTES become missed."""
-    count = services.mark_missed_doses()
-    if count:
-        logger.info("Marked %s dose(s) missed", count)
-    return count
+    return services.mark_missed_doses()

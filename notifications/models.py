@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 from scheduling.models import DoseEvent
 
@@ -42,7 +43,12 @@ class NotificationLog(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["status", "next_attempt_at"], name="notif_status_next_idx"),
+            # Only unfinished sends are ever scanned (retries / stuck leases). Partial, so the
+            # millions of finished rows are not in the index and finishing a send removes its entry.
+            models.Index(
+                fields=["next_attempt_at"], name="notif_sending_idx",
+                condition=Q(status="sending"),
+            ),
         ]
 
     def __str__(self):

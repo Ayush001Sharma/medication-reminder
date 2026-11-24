@@ -36,11 +36,14 @@ DEFINITION = (
     "Pending, reminded and future doses are never counted."
 )
 
+# Count a column that is in the index (status is NOT NULL, so this equals COUNT(*)), never the
+# primary key: dose_patient_cover_idx holds every column the report reads except ``id``, so
+# counting ``id`` would force a table access and lose the index-only scan.
 _COUNTS = {
-    "taken": Count("pk", filter=Q(status=DoseStatus.TAKEN)),
-    "taken_late": Count("pk", filter=Q(status=DoseStatus.TAKEN, taken_late=True)),
-    "missed": Count("pk", filter=Q(status=DoseStatus.MISSED)),
-    "skipped": Count("pk", filter=Q(status=DoseStatus.SKIPPED)),
+    "taken": Count("status", filter=Q(status=DoseStatus.TAKEN)),
+    "taken_late": Count("status", filter=Q(status=DoseStatus.TAKEN, taken_late=True)),
+    "missed": Count("status", filter=Q(status=DoseStatus.MISSED)),
+    "skipped": Count("status", filter=Q(status=DoseStatus.SKIPPED)),
 }
 
 
