@@ -8,7 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from config.env import env_bool, env_int, env_list, require_env, validate_secret_key
 
 ROOT = Path(__file__).resolve().parent.parent
-READ_ENV = re.compile(r"""(?:environ\.get|env_int|env_bool|env_list|require_env)\(\s*["']([A-Z][A-Z0-9_]+)["']""")
+READ_ENV = re.compile(r"""(?:environ\.get|env_int|env_bool|env_list|env_origins|require_env)\(\s*["']([A-Z][A-Z0-9_]+)["']""")
 DEV_KEY = "dev-only-insecure-key-change-me-not-for-production-use"
 
 

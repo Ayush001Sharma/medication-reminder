@@ -42,6 +42,8 @@ def test_production_mode_with_a_proper_secret_key_starts():
     ({"REMINDER_SENDING_TIMEOUT_SECONDS": "30"}, "REMINDER_SENDING_TIMEOUT_SECONDS"),
     ({"EMAIL_PORT": "smtp"}, "EMAIL_PORT"),
     ({"EMAIL_USE_TLS": "sometimes"}, "EMAIL_USE_TLS"),
+    ({"CORS_ALLOWED_ORIGINS": "*"}, "CORS_ALLOWED_ORIGINS"),
+    ({"CORS_ALLOWED_ORIGINS": "localhost:5173"}, "CORS_ALLOWED_ORIGINS"),
 ])
 def test_bad_settings_stop_startup_with_a_clear_message(env, expected):
     result = run_check(**env)

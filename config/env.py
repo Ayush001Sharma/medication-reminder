@@ -1,5 +1,6 @@
 """Helpers for reading configuration from environment variables."""
 import os
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.core.exceptions import ImproperlyConfigured
@@ -59,6 +60,28 @@ def env_bool(name: str, default: bool) -> bool:
 def env_list(name: str, default: str) -> list[str]:
     """Comma-separated environment variable as a list of non-empty items."""
     return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
+_ORIGIN = re.compile(r"^https?://(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\])(?::\d{1,5})?$")
+
+
+def env_origins(name: str) -> list[str]:
+    """Comma-separated browser origins, e.g. ``https://app.example.com,http://localhost:5173``.
+
+    An origin is scheme + host (+ port) and nothing else. A trailing slash is tolerated and removed. A
+    wildcard, a missing scheme or a path is rejected at startup rather than silently ignored, because an
+    origin that does not match exactly would simply never be allowed (or, worse, be too permissive).
+    """
+    origins = []
+    for item in env_list(name, ""):
+        origin = item.rstrip("/")
+        if not _ORIGIN.match(origin):
+            raise ImproperlyConfigured(
+                f"{name} must be comma-separated origins such as https://app.example.com "
+                f"(scheme and host, optional port, no path or wildcard), got {item!r}."
+            )
+        origins.append(origin)
+    return origins
 
 
 def normalize_redis_url(url: str) -> str:

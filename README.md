@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/Ayush001Sharma/medication-reminder/actions/workflows/tests.yml/badge.svg)](https://github.com/Ayush001Sharma/medication-reminder/actions/workflows/tests.yml)
 
-A backend (REST API plus background jobs, no frontend) for people who take medicine on a schedule.
+A backend (REST API plus background jobs) and a web frontend (in `frontend/`) for people who take medicine on a schedule.
 
 - **Patients** add prescriptions with dose schedules, get an email reminder for every dose, and mark each dose
   taken or skipped, from the API or with one click from the email.
@@ -12,7 +12,7 @@ A backend (REST API plus background jobs, no frontend) for people who take medic
   accept**. The patient can revoke access at any moment, and sees an audit log of every time their data was viewed.
 
 Stack: Python 3.12+, Django 5.2, Django REST Framework, PostgreSQL, Celery + Redis (Celery Beat for scheduling),
-JWT authentication (simplejwt), Swagger docs (drf-spectacular), pytest. No Docker, no frontend.
+JWT authentication (simplejwt), Swagger docs (drf-spectacular), pytest. The frontend is React 18, Vite, TypeScript, Tailwind CSS, React Router, Recharts and Vitest. No Docker.
 
 > **Not a medical device.** This is a learning/demo-grade backend. It makes no HIPAA, GDPR or clinical-safety claims.
 > See [Known limitations](#known-limitations) before using it with real patients.
@@ -326,6 +326,7 @@ Bad values stop the app at startup with a message naming the variable.
 | `DJANGO_DEBUG` | no | `true` | `true` for local development only. Set `false` anywhere other people can reach |
 | `DJANGO_ALLOWED_HOSTS` | no | `localhost,127.0.0.1` | Comma-separated host names the server answers to |
 | `SITE_BASE_URL` | no | `http://localhost:8000` | Public address used to build the one-click link in reminder emails |
+| `CORS_ALLOWED_ORIGINS` | no | empty (no cross-origin access) | Comma-separated browser origins (the web frontend) allowed to call `/api/`, e.g. `http://localhost:5173,https://app.example.com`. Scheme and host (and optional port) only: no path, no wildcard. A bad value stops startup. Only `/api/` is exposed; credentials/cookies are never allowed (auth is a bearer token); `Retry-After` is exposed so the frontend can read rate-limit waits |
 | `EMAIL_BACKEND` | no | console backend | Where emails go. Default prints them in the worker terminal. For real mail: `django.core.mail.backends.smtp.EmailBackend` |
 | `DEFAULT_FROM_EMAIL` | no | `reminders@medreminder.local` | The From address on every email |
 | `EMAIL_TIMEOUT` | no | `30` | Seconds one SMTP network operation may take |
@@ -633,6 +634,91 @@ prefetch links. Settings fail loudly at startup rather than running misconfigure
   clinical validation. Do not treat reminders as the only safeguard for critical medication.
 - **Clock dependence.** Reminder timing relies on the server clocks of the database and workers being correct.
 
+## Web frontend
+
+The `frontend/` folder is a single-page app: React 18, Vite, TypeScript, Tailwind CSS 4, React Router, Recharts, tested with
+Vitest and React Testing Library. Fonts (DM Sans for text, Fraunces for headings) are self-hosted from `@fontsource`
+packages: nothing is loaded from a CDN. This is the **foundation**: app shell, authentication, role-based routing and the
+component library, plus two real pages (a patient's *Today* and a caregiver/doctor's *Patients*). *Medications*, *Sharing*,
+*Activity* and *Invitations* are routed placeholders waiting to be built on top of it.
+
+**Run it (macOS / Linux).** Needs Node.js 22 or newer and the backend running.
+
+```bash
+cd frontend
+cp .env.example .env.local       # VITE_API_BASE_URL=http://localhost:8000
+npm ci
+npm run dev                      # http://localhost:5173
+```
+
+**Run it (Windows PowerShell).** Install Node.js 22 LTS from nodejs.org first.
+
+```powershell
+cd frontend
+Copy-Item .env.example .env.local
+npm ci
+npm run dev
+```
+
+The browser may only call the API from an origin the backend allows. In the backend's `.env` set
+`CORS_ALLOWED_ORIGINS=http://localhost:5173` (the dev server; add `http://localhost:4173` for `npm run preview`), then restart
+Django. With the demo data (`python manage.py seed_demo`) you can sign in as `demo.asha@example.com` (patient) or
+`demo.dr.rao@example.com` (doctor) with the demo password.
+
+| Command (in `frontend/`) | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm run lint` | ESLint (TypeScript, React hooks rules), zero warnings allowed |
+| `npm run typecheck` | `tsc --noEmit`, strict mode |
+| `npm test` | Vitest (`npm run test:watch` while developing) |
+| `npm run build` | Type-check, then a production build in `dist/` |
+| `npm run preview` | Serve the production build on port 4173 |
+
+| Frontend variable | What it does |
+|---|---|
+| `VITE_API_BASE_URL` | Base URL of the backend, no trailing slash (default in `.env.example`: `http://localhost:8000`). Read at **build** time and visible to anyone who opens the site: never put a secret in a `VITE_` variable. |
+
+**Authentication.** `src/api/client.ts` attaches the JWT access token to every request. On a `401` it exchanges the refresh
+token for a new access token **once**, then retries the request; several requests that fail together share one refresh. If
+the refresh fails (or the retried request is refused again) the session is ended and the user lands on the sign-in page with
+a notice. Sign-in, registration and the refresh call itself never trigger a refresh. Tokens live **in memory and in
+`sessionStorage`, never `localStorage`**: they survive a page reload but not closing the tab. `sessionStorage` is still
+readable by any script on the page, so the real protection is not rendering untrusted HTML (the app renders none).
+`ProtectedRoute` guards routes by role: signed-out visitors go to `/login` (and come back afterwards); the wrong role sees a
+"not available" page. This only controls what the UI shows; the backend enforces access on every request.
+
+**Design system.** The palette lives in one place, `src/index.css`, as Tailwind theme tokens (`cream`, `surface`, `subtle`,
+`sage`, `sage-dark`, `sage-tint`, `ink`, `muted`, `line`, `clay`, `danger`). Tailwind's default palette is removed, so a class
+like `bg-blue-500` does not exist, and a test fails if one appears. Components: `Button`, `Card`, `Input`, `Select`, `Badge`
+(status chips), `Modal` (focus trap, Escape, focus return), `Toast`, `Skeleton`, `EmptyState`. Rounded-2xl cards, soft shadows,
+150-200 ms transitions, a 3 px keyboard focus ring and large (48 px) buttons; motion is switched off for people who ask for
+reduced motion.
+
+**Contrast (WCAG AA) and the rules it forces.** Measured from the tokens (and checked by `src/theme/theme.test.ts` and by axe
+in a real browser): body ink on cream is 12.7:1. Some of the specified pairs do **not** reach AA for normal text, so the
+components avoid them:
+
+| Pair | Ratio | Consequence |
+|---|---|---|
+| white on sage `#6B8F71` | 3.63 | Filled buttons use `sage-dark` (6.0:1 with white text), not `sage`. Sage is used for borders (3.6:1, enough for control edges), the logo, charts and accents |
+| `muted` on cream / subtle | 4.44 / 4.13 | `muted` text appears only on white surfaces (cards, inputs, menus). A test lists the allowed files |
+| `clay` as text | 2.84 | Clay is only a fill, always with ink text (4.8:1) |
+| the `line` border on cream | 1.22 | Used for decoration only; form controls use the sage border |
+
+Status chips always carry a word ("Missed", "Taken late"), never colour alone.
+
+**Tests** (`npm test`): the API client (refresh-once, single-flight, logout on every refresh-failure path, no refresh for
+sign-in calls, error messages, `VITE_API_BASE_URL`), the token store (never `localStorage`), route protection for every role,
+the auth provider, the shell and navigation per role, every component, each page's loading / empty / error states, the design
+tokens, and an axe-core accessibility audit of the shell, forms, dialog and pages. Contrast is not testable in jsdom, so it is
+verified from the tokens and in a real browser.
+
+**CI.** The `frontend` job in `.github/workflows/tests.yml` runs `npm ci`, lint, type-check, tests and build on every push.
+
+**Frontend limitations.** Medication management, sharing, the audit log, invitations, dose actions (mark taken/skip) and the
+per-patient report view are not built yet; the API for all of them exists. There is no server-side sign-out (the backend has
+no token blacklist), so signing out forgets the tokens in the browser only. The production build is not deployed anywhere.
+
 ## Project layout
 
 ```
@@ -642,7 +728,8 @@ medications/     medication model and API
 scheduling/      schedules, dose events, generation, dose actions, one-click link
 notifications/   channels, reminder pipeline, notification log, missed-dose job
 reports/         adherence report, audit log, weekly summaries
-tests/           cross-cutting tests (configuration, rate limits, health, indexes)
+frontend/        React web app (see Web frontend)
+tests/           cross-cutting tests (configuration, rate limits, health, indexes, CORS)
 scripts/         check_redis.py (any OS); dev_services.sh (Linux cloud sandbox only)
 .github/workflows/tests.yml
 ```

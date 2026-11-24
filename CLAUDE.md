@@ -58,7 +58,12 @@ Health-tech backend (no frontend). Patients add prescriptions with dose schedule
 - Email is the real channel (console email backend in development).
 - Define a notification-channel interface so SMS/WhatsApp can be added later.
 
+## Frontend
+
+- A web frontend lives in `frontend/` (React 18, Vite, TypeScript, Tailwind, React Router, Recharts, Vitest). The backend
+  stays API-only; the only backend change for it is CORS (`CORS_ALLOWED_ORIGINS`).
+- Use only the design tokens in `frontend/src/index.css`; respect the contrast rules documented there.
+
 ## Do not
 
-- Build a frontend.
 - Send real WhatsApp/SMS messages.

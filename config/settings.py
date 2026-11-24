@@ -19,7 +19,7 @@ from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
 
 from .env import (
-    env_bool, env_int, env_list, load_env_file, normalize_redis_url, require_env, validate_rate,
+    env_bool, env_int, env_list, env_origins, load_env_file, normalize_redis_url, require_env, validate_rate,
     validate_secret_key,
 )
 
@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
+    "corsheaders",
     "drf_spectacular",
     "accounts",
     "medications",
@@ -63,6 +64,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # CORS first: it must see every request, and add headers to every response that can be produced
+    # below it (redirects and errors included).
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -284,3 +288,11 @@ LOGGING = {
 
 # NOTE: never import DRF (or anything that imports it, such as config.ratelimit) in this
 # module: DRF would read REST_FRAMEWORK before it is defined and cache the defaults.
+
+# --- CORS: which browser origins (the web frontend) may call the API ---------------------------------
+# Empty by default: no cross-origin browser access. Authentication uses a bearer token in a header, never
+# cookies, so credentials are not allowed (CORS_ALLOW_CREDENTIALS stays False) and only /api/ is exposed.
+CORS_ALLOWED_ORIGINS = env_origins("CORS_ALLOWED_ORIGINS")
+CORS_URLS_REGEX = r"^/api/.*$"
+# Lets the frontend read how long to wait after a 429.
+CORS_EXPOSE_HEADERS = ["Retry-After"]
