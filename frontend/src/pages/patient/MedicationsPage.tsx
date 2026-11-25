@@ -13,6 +13,7 @@ import { LoadingRegion, SkeletonList } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
 import { activeFirst } from '../../lib/medications'
 import { useToast } from '../../toast/context'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 /** Medications with their schedules (the API has no combined endpoint, so the schedules are fetched in parallel). */
 async function loadMedications(signal: AbortSignal): Promise<MedicationWithSchedules[]> {
@@ -22,6 +23,7 @@ async function loadMedications(signal: AbortSignal): Promise<MedicationWithSched
 }
 
 export function MedicationsPage() {
+  usePageTitle('Medications')
   const toast = useToast()
   const medications = useAsync(loadMedications)
   const [stopped, setStopped] = useState<ReadonlySet<number>>(new Set())

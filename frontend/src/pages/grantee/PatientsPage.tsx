@@ -12,9 +12,11 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingRegion, SkeletonList } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
 import { displayName } from '../../lib/report'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 /** Caregiver / doctor home: pending invitations to accept, then the patients who have granted access. */
 export function PatientsPage() {
+  usePageTitle('Patients')
   const patients = useAsync((signal) => api.get<AccessiblePatient[]>('/api/patients/', { signal }))
   return (
     <>

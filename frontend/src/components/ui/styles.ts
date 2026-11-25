@@ -5,7 +5,8 @@ export type ButtonSize = 'md' | 'lg'
 
 const base =
   'inline-flex select-none items-center justify-center gap-2 rounded-2xl font-semibold ' +
-  'transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-60'
+  'transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-60 ' +
+  'motion-safe:active:scale-[0.97] motion-safe:disabled:active:scale-100'
 
 /*
  * Filled buttons use sage-dark + white text (6.0:1). The brand sage itself is only 3.6:1 against white, so it

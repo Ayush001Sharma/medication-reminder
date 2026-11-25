@@ -34,7 +34,8 @@ JWT authentication (simplejwt), Swagger docs (drf-spectacular), pytest. The fron
 13. [Continuous integration](#continuous-integration)
 14. [Design decisions](#design-decisions)
 15. [Known limitations](#known-limitations)
-16. [Project layout](#project-layout)
+16. [Frontend](#frontend)
+17. [Project layout](#project-layout)
 
 ## Architecture
 
@@ -634,48 +635,27 @@ prefetch links. Settings fail loudly at startup rather than running misconfigure
   clinical validation. Do not treat reminders as the only safeguard for critical medication.
 - **Clock dependence.** Reminder timing relies on the server clocks of the database and workers being correct.
 
-## Web frontend
+## Frontend
 
-The `frontend/` folder is a single-page app: React 18, Vite, TypeScript, Tailwind CSS 4, React Router, Recharts, tested with
-Vitest and React Testing Library. Fonts (DM Sans for text, Fraunces for headings) are self-hosted from `@fontsource`
-packages: nothing is loaded from a CDN. It has the app shell, authentication, role-based routing, the component library and
-the **patient screens** and the **caregiver / doctor screens** (below). Every page in the navigation is now real.
+The `frontend/` folder is a single-page web app (the backend stays API-only): React 18, Vite, TypeScript (strict), Tailwind CSS 4,
+React Router, Recharts, tested with Vitest, React Testing Library and axe-core. Fonts (DM Sans for text, Fraunces for headings)
+are self-hosted from `@fontsource` packages: nothing is loaded from a CDN. It has a landing page, sign-in and registration, the
+patient screens, the caregiver / doctor screens and a **demo mode** for trying it in one click.
 
-**Patient screens.**
+### Run it
 
-| Screen | What it does |
-|---|---|
-| Register / Sign in | Registration asks for a timezone, defaulting to the browser's (`Intl.DateTimeFormat().resolvedOptions().timeZone`), in a searchable select of IANA zones (type a city, country or GMT offset; old names such as "Calcutta" also match). API field errors, such as an invalid timezone, appear under the field |
-| Today | Today's doses in the patient's local time, grouped Morning / Afternoon / Evening / Night, each with medication, dosage, local time and a status chip (Pending, Reminded, Taken, Missed, Skipped, Taken late). **Taken** and **Skip** update the screen at once and roll back with a "Try again" toast if the server refuses. A `409` (for example skipping a dose that was already taken) shows a plain-language message and refreshes the list without a loading flash. Calm empty state when nothing is scheduled |
-| Upcoming | The next 7 days of doses, grouped by day |
-| Medications | Medications with their schedules; **Add medication** (name, dosage, dates, time chips, day-of-week toggles), **Edit**, and **Stop** (deactivate) behind a confirmation dialog. API validation errors are shown on the matching field |
+Needs Node.js 22 or newer and the backend running (see the set-up sections above).
 
-| Sharing | Invite a caregiver or doctor by email. The confirmation is the same sentence for every address (the API never reveals whether an account exists). Lists people with access and pending invitations; **Revoke access** / **Cancel invitation** each ask for confirmation first |
-| Activity | Who viewed the patient's report or was emailed a weekly summary, newest first, 20 per page (`?page=2`), times in the patient's own timezone |
-
-**Caregiver and doctor screens.**
-
-| Screen | What it does |
-|---|---|
-| Patients (home) | A **Pending invitations** area with an Accept button each (the patient list refreshes at once), then the patients who granted access, with a clear empty state. The same invitations area is also on its own *Invitations* page |
-| Adherence report (`/patients/:id`) | Date range picker (default: last 30 days in the patient's timezone; at most 366 days; kept in the address as `?from=&to=`). A large sage donut with the percentage, counts of taken, missed, skipped and taken late, the current streak, and a per-medication bar chart (Recharts, palette colours) with the same numbers repeated as text. An info tooltip states the definition: **taken ÷ (taken + missed)**. A null percentage shows a friendly message instead of a number; a period with no doses shows an empty state |
-| No access | The API answers 404 for a revoked, unknown or never-granted patient (and the app treats a malformed id the same way). The report page shows a calm "This report isn't available" message with a way back, never an error screen. Viewing a report is written to the patient's access log by the API |
-
-A last-resort error boundary inside the app shell turns an unexpected rendering failure into a "Something went wrong on this page" message with Try again, so navigation keeps working.
-
-Every page has a loading skeleton, an error state with a retry button, and a responsive layout (bottom tab bar on phones, top
-navigation on wider screens).
-
-**Run it (macOS / Linux).** Needs Node.js 22 or newer and the backend running.
+**macOS / Linux**
 
 ```bash
 cd frontend
-cp .env.example .env.local       # VITE_API_BASE_URL=http://localhost:8000
+cp .env.example .env.local       # then edit if your backend is not on http://localhost:8000
 npm ci
 npm run dev                      # http://localhost:5173
 ```
 
-**Run it (Windows PowerShell).** Install Node.js 22 LTS from nodejs.org first.
+**Windows PowerShell** (install Node.js 22 LTS from nodejs.org first)
 
 ```powershell
 cd frontend
@@ -686,8 +666,7 @@ npm run dev
 
 The browser may only call the API from an origin the backend allows. In the backend's `.env` set
 `CORS_ALLOWED_ORIGINS=http://localhost:5173` (the dev server; add `http://localhost:4173` for `npm run preview`), then restart
-Django. With the demo data (`python manage.py seed_demo`) you can sign in as `demo.asha@example.com` (patient) or
-`demo.dr.rao@example.com` (doctor) with the demo password.
+Django.
 
 | Command (in `frontend/`) | What it does |
 |---|---|
@@ -698,55 +677,145 @@ Django. With the demo data (`python manage.py seed_demo`) you can sign in as `de
 | `npm run build` | Type-check, then a production build in `dist/` |
 | `npm run preview` | Serve the production build on port 4173 |
 
-| Frontend variable | What it does |
-|---|---|
-| `VITE_API_BASE_URL` | Base URL of the backend, no trailing slash (default in `.env.example`: `http://localhost:8000`). Read at **build** time and visible to anyone who opens the site: never put a secret in a `VITE_` variable. |
+### Environment variables
 
-**Authentication.** `src/api/client.ts` attaches the JWT access token to every request. On a `401` it exchanges the refresh
-token for a new access token **once**, then retries the request; several requests that fail together share one refresh. If
-the refresh fails (or the retried request is refused again) the session is ended and the user lands on the sign-in page with
-a notice. Sign-in, registration and the refresh call itself never trigger a refresh. Tokens live **in memory and in
-`sessionStorage`, never `localStorage`**: they survive a page reload but not closing the tab. `sessionStorage` is still
-readable by any script on the page, so the real protection is not rendering untrusted HTML (the app renders none).
-`ProtectedRoute` guards routes by role: signed-out visitors go to `/login` (and come back afterwards); the wrong role sees a
-"not available" page. This only controls what the UI shows; the backend enforces access on every request.
+Vite reads `VITE_` variables **when the app is built** and copies them into the downloadable JavaScript, so anyone who opens the
+site can read them. Never put a secret in one. Copy `frontend/.env.example` to `frontend/.env.local` (git-ignored).
 
-**Design system.** The palette lives in one place, `src/index.css`, as Tailwind theme tokens (`cream`, `surface`, `subtle`,
-`sage`, `sage-dark`, `sage-tint`, `ink`, `muted`, `line`, `clay`, `danger`). Tailwind's default palette is removed, so a class
-like `bg-blue-500` does not exist, and a test fails if one appears. Components: `Button`, `Card`, `Input`, `Select`, `Badge`
-(status chips), `Modal` (focus trap, Escape, focus return), `Toast`, `Skeleton`, `EmptyState`. Rounded-2xl cards, soft shadows,
-150-200 ms transitions, a 3 px keyboard focus ring and large (48 px) buttons; motion is switched off for people who ask for
-reduced motion.
-
-**Contrast (WCAG AA) and the rules it forces.** Measured from the tokens (and checked by `src/theme/theme.test.ts` and by axe
-in a real browser): body ink on cream is 12.7:1. Some of the specified pairs do **not** reach AA for normal text, so the
-components avoid them:
-
-| Pair | Ratio | Consequence |
+| Variable | Default | What it does |
 |---|---|---|
-| white on sage `#6B8F71` | 3.63 | Filled buttons use `sage-dark` (6.0:1 with white text), not `sage`. Sage is used for borders (3.6:1, enough for control edges), the logo, charts and accents |
-| `muted` on cream / subtle | 4.44 / 4.13 | `muted` text appears only on white surfaces (cards, inputs, menus). A test lists the allowed files |
-| `clay` as text | 2.84 | Clay is only a fill, always with ink text (4.8:1) |
-| the `line` border on cream | 1.22 | Used for decoration only; form controls use the sage border |
+| `VITE_API_BASE_URL` | `http://localhost:8000` (in `.env.example`) | Base URL of the backend, no trailing slash. That origin must allow your frontend's origin in the backend's `CORS_ALLOWED_ORIGINS` |
+| `VITE_DEMO_MODE` | `false` | Exactly `true` adds the demo sign-in buttons (below). Any other value, or leaving it out, builds an app **without** demo mode |
+| `VITE_DEMO_PASSWORD`, `VITE_DEMO_PATIENT_KOLKATA_EMAIL`, `VITE_DEMO_PATIENT_NEW_YORK_EMAIL`, `VITE_DEMO_CAREGIVER_EMAIL`, `VITE_DEMO_DOCTOR_EMAIL` | the `seed_demo` values | The demo accounts. They match what `python manage.py seed_demo` creates (see [Demo data](#demo-data)); change them only if you seeded with another `--password` / `DEMO_PASSWORD`. Read only when `VITE_DEMO_MODE=true` |
 
-Status chips always carry a word ("Missed", "Taken late"), never colour alone.
+### Demo mode
 
-**Tests** (`npm test`): the API client (refresh-once, single-flight, logout on every refresh-failure path, no refresh for
-sign-in calls, error messages, `VITE_API_BASE_URL`), the token store (never `localStorage`), route protection for every role,
-the auth provider, the shell and navigation per role, every component, each page's loading / empty / error states, the Today page's actions
-(optimistic update, rollback, 409, double-click guard), the medication form's validation, the report page's states (loading, data, empty, null percentage, no access, range validation), the Sharing and Activity pages, invitation accepting, the design
-tokens, and an axe-core accessibility audit of the shell, forms, dialog and pages. Contrast is not testable in jsdom, so it is
-verified from the tokens and in a real browser.
+With `VITE_DEMO_MODE=true` the sign-in page shows a clearly labelled **Demo mode** box with four buttons: *Try as patient
+(Kolkata)*, *Try as patient (New York)*, *Try as caregiver*, *Try as doctor*. Each signs in with the matching `seed_demo`
+account through the normal sign-in API call, then opens that role's home page. It is for **local development only**: never
+turn it on for a real backend. To try it:
 
-**CI.** The `frontend` job in `.github/workflows/tests.yml` runs `npm ci`, lint, type-check, tests and build on every push.
+```bash
+python manage.py seed_demo                                   # once, with DJANGO_DEBUG=true
+cd frontend
+VITE_DEMO_MODE=true npm run dev                              # macOS / Linux
+```
 
-**Frontend limitations.** There is no weekly-summary or notification-preference screen yet, and no report view for a patient
-beyond the *Last 30 days* card on Today. **There is no real undo** for a dose: the API treats taken and skipped as final (a
-taken dose cannot be skipped, and nothing reverses it), so instead of a fake undo the app rolls back and offers "Try again"
-when a request fails. A stopped medication cannot be reactivated (the API has no such action); add it again as a new
-medication. A revoked invitation cannot be re-accepted: the patient invites again. There is no server-side sign-out (the
-backend has no token blacklist), so signing out forgets the tokens in the browser only. The production build is not deployed
-anywhere.
+```powershell
+$env:VITE_DEMO_MODE = "true"; npm run dev                    # Windows PowerShell
+```
+
+**Demo mode cannot leak into a normal build.** The switch is one expression, `import.meta.env.VITE_DEMO_MODE === 'true'`, in
+`src/demo/DemoSection.tsx`. Vite replaces it with a literal at build time, so without the variable the demo code, the four
+labels and the demo password are not in the build at all, even if the `VITE_DEMO_*` values are set. This is not just a
+promise: `src/demo/demoStripped.test.ts` runs real production builds (flag unset, `false`, `TRUE`, `1`) and fails if any
+demo text is in the output, and a build with the flag on proves the check can fail.
+
+### How the frontend talks to the API
+
+- **One client** (`src/api/client.ts`) is the only code that calls `fetch`. It sends `Authorization: Bearer <access token>`, parses
+  JSON, and turns every failure into an `ApiError` with a status, a readable message and, for validation errors, `fieldErrors`
+  (Django REST Framework shapes, including nested ones such as `times_of_day: {"0": [...]}`, are flattened to the first message
+  per field and shown under the matching input).
+- **Sessions.** On a `401` it exchanges the refresh token for a new access token **once**, then retries the request; requests that
+  fail together share one refresh. If the refresh fails the session ends and the user lands on the sign-in page. Tokens live
+  **in memory and in `sessionStorage`, never `localStorage`**: they survive a reload but not closing the tab. `sessionStorage`
+  is readable by any script on the page, so the real protection is that the app renders no untrusted HTML.
+- **Roles.** `ProtectedRoute` shows signed-out visitors the sign-in page (and returns them afterwards) and the wrong role a
+  "not available" page. That only shapes the UI: the backend enforces access on every request.
+- **Dates and timezones.** The API gives each dose as a UTC instant plus its local time in the patient's timezone; the frontend
+  shows the patient's local time and treats calendar dates as plain `YYYY-MM-DD` strings in the *patient's* zone, never the
+  browser's. Report ranges are sent as such dates.
+- **Doses.** Taken and Skip update the screen immediately (optimistic) and roll back with a "Try again" toast on failure. A
+  `409` becomes a plain sentence and a silent refresh. There is **no undo**, because the API treats taken and skipped as final.
+- **404 means "no access".** For reports the API answers 404 for a revoked, unknown or never-granted patient, so the app shows a
+  calm "This report isn't available" page for any 404 (and for a malformed id) and never the raw error.
+- **Rate limits.** A `429` shows the API's wait time ("Please wait 30 seconds").
+
+### Screens
+
+| Screen | What it does |
+|---|---|
+| Landing (`/`) | What the app is, with *Create your account* and *Sign in*, and a calm illustration drawn from inline SVG shapes (no images to license). Signed-in people skip it and go to their home page |
+| Register / Sign in | Registration asks for a timezone, defaulting to the browser's (`Intl.DateTimeFormat().resolvedOptions().timeZone`), in a searchable select of IANA zones (type a city, country or GMT offset; old names such as "Calcutta" also match). API field errors appear under the field and keyboard focus moves to the first one |
+| Today | Today's doses in the patient's local time, grouped Morning / Afternoon / Evening / Night, each with medication, dosage, local time and a status chip (Upcoming, Reminder sent, Taken, Missed, Skipped, Taken late). Calm empty state when nothing is scheduled |
+| Upcoming | The next 7 days of doses, grouped by day |
+| Medications | Medications with their schedules; **Add medication** (name, dosage, dates, time chips, day-of-week toggles), **Edit**, and **Stop** (deactivate) behind a confirmation dialog |
+| Sharing | Invite a caregiver or doctor by email. The confirmation is the same sentence for every address (the API never reveals whether an account exists). Lists people with access and pending invitations; **Revoke access** / **Cancel invitation** each ask for confirmation first |
+| Activity | Who viewed the patient's report or was emailed a weekly summary, newest first, 20 per page (`?page=2`), times in the patient's own timezone |
+| Patients (caregiver / doctor home) | A **Pending invitations** area with an Accept button each, then the patients who granted access, with a clear empty state. The same invitations area is also on its own *Invitations* page |
+| Adherence report (`/patients/:id`) | Date range picker (default: last 30 days in the patient's timezone; at most 366 days; kept in the address as `?from=&to=`). A large sage donut with the percentage, counts of taken, missed, skipped and taken late, the current streak, and a per-medication bar chart with the same numbers repeated as text. An info tooltip states the definition: **taken ÷ (taken + missed)**. A null percentage shows a friendly message; a period with no doses shows an empty state |
+| Not found / not available | A calm 404 for visitors and for signed-in people (inside the app shell), and a "not available" page for the wrong role |
+
+Every page has a loading skeleton, an error state with a retry button, and a responsive layout (bottom tab bar on phones, top
+navigation on wider screens). Every page sets its own browser-tab title (for example "Today · MedReminder"), and the favicon is
+`public/favicon.svg`. A last-resort error boundary inside the app shell turns an unexpected rendering failure into "Something went
+wrong on this page" with Try again, so navigation keeps working.
+
+### Design
+
+**Palette.** All colours live in one place, `src/index.css`, as Tailwind theme tokens. Tailwind's default palette is removed, so a
+class like `bg-blue-500` does not exist, and a test fails if a stray hex colour or default-palette class appears.
+
+| Token | Value | Used for |
+|---|---|---|
+| `cream` | `#FAF7F0` | Page background |
+| `surface` | `#FFFFFF` | Cards, inputs, menus |
+| `subtle` | `#F3EFE4` | Quiet fills, skeletons, chart tracks |
+| `sage` | `#6B8F71` | Brand accent: borders of controls, the donut and bars, illustrations (never text) |
+| `sage-dark` | `#4A6B50` | Filled buttons (white text), links, active navigation |
+| `sage-tint` | `#E4EDE3` | Selected and success fills, the landing scene |
+| `ink` | `#2B2F2A` | Body text |
+| `muted` | `#6E756C` | Secondary text, on white surfaces only |
+| `line` | `#E6E1D6` | Decorative borders and dividers |
+| `clay` | `#C98B6B` | "Missed" and attention fills, always with ink text |
+| `danger` | `#B5483F` | Errors and destructive actions |
+
+**Decisions.**
+
+- **Contrast comes first, so some specified pairs are not used for text.** Measured from the tokens (and checked by
+  `src/theme/theme.test.ts`, by axe in jsdom, and by axe *with* real colour contrast in a browser on every page at desktop and
+  phone width): white on `sage` is 3.63:1 (below the 4.5:1 AA minimum), so filled buttons use `sage-dark` (6.0:1); `muted` on
+  cream is 4.44:1, so `muted` text appears only on white surfaces; `clay` as text is 2.84:1, so clay is only a fill with ink text
+  (4.8:1); the `line` border on cream is 1.22:1, so control borders use `sage` (3.6:1). A test lists the files allowed to use `muted`.
+- **Meaning is never carried by colour alone.** Status chips always carry a word ("Missed", "Taken late"); charts are drawn with an
+  accessible text alternative and their numbers are repeated as text beside them.
+- **Calm, not clinical.** Rounded cards, soft shadows, generous spacing, one accent colour, plain wording ("We could not find that
+  page", not an error code), and empty states that say what to do next.
+- **Honest about the API.** No fake undo; rollback with "Try again" instead. A stopped medication says it cannot be reactivated.
+- **Motion is small and optional.** Pages fade in (about 240 ms), buttons shrink slightly when pressed, and the donut sweeps in while
+  its number counts up. With `prefers-reduced-motion: reduce` all of it is off: CSS animations and transitions are neutralised in
+  `index.css`, press scaling uses Tailwind's `motion-safe:` variant, and the JavaScript-driven animation (`usePrefersReducedMotion`)
+  is not started, so the final number is there on first paint. Where the browser cannot say, the answer is "no animation".
+- **Illustrations are original and inline.** The landing scene is plain SVG shapes using theme classes: nothing to license, nothing
+  to download.
+- **Charts load on demand.** Recharts is lazy-loaded, so sign-in and the landing page do not download it.
+- **Dependencies are few.** No UI kit, no state library, no date library: small hooks (`useAsync`) and plain `Intl`.
+
+**Accessibility.** One `<h1>` per page and landmarks (`header`, `nav`, `main`, `footer`); a "Skip to content" link; every control has
+a visible label or an `aria-label`; one clear 3 px keyboard focus ring; touch targets of at least 44 px. After moving to another
+page, focus goes to the top of the new content and the title changes, so keyboard and screen-reader users know where they are.
+When a form has errors, focus moves to the first invalid field (`aria-invalid` set, message linked with `aria-describedby`).
+Dialogs have `role="dialog"`, `aria-modal`, a name and a description, keep Tab inside, close on Escape and return focus to what
+opened them. Errors are announced with `role="alert"` and other messages with `role="status"`; a toast waits while the pointer is
+over it or focus is inside it, so it never vanishes mid-read.
+
+### Tests and CI
+
+`npm test` covers: the API client (refresh-once, single-flight, logout on every refresh-failure path, error messages, nested field
+errors), the token store (never `localStorage`), route protection for every role, the front door and 404 routes, page titles, the
+auth provider, the shell and navigation per role, focus on navigation, every component, each page's loading / empty / error
+states, the Today page's actions (optimistic update, rollback, 409, double-click guard), the medication form's validation, the
+report page's states (loading, data, empty, null percentage, no access, range validation), Sharing and Activity, invitation
+accepting, demo mode (and its absence from builds), reduced motion, the design tokens, and an axe-core audit of the shell, forms,
+dialogs and pages. The `frontend` job in `.github/workflows/tests.yml` runs `npm ci`, lint, type-check, tests and build on every push.
+
+### Frontend limitations
+
+There is no weekly-summary or notification-preference screen yet, and no report view for a patient beyond the *Last 30 days* card
+on Today. There is no undo for a dose, a stopped medication cannot be reactivated, and a revoked invitation cannot be re-accepted
+(the patient invites again): those are the API's rules. There is no server-side sign-out (the backend has no token blacklist), so
+signing out forgets the tokens in the browser only. The production build is not deployed anywhere.
 
 ## Project layout
 
@@ -757,7 +826,7 @@ medications/     medication model and API
 scheduling/      schedules, dose events, generation, dose actions, one-click link
 notifications/   channels, reminder pipeline, notification log, missed-dose job
 reports/         adherence report, audit log, weekly summaries
-frontend/        React web app (see Web frontend)
+frontend/        React web app (see Frontend)
 tests/           cross-cutting tests (configuration, rate limits, health, indexes, CORS)
 scripts/         check_redis.py (any OS); dev_services.sh (Linux cloud sandbox only)
 .github/workflows/tests.yml

@@ -12,10 +12,12 @@ import { LoadingRegion, SkeletonList } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
 import { dayHeading, todayInZone, zoneOf } from '../../lib/dates'
 import { groupByDay } from '../../lib/doses'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 const DAYS = 7
 
 export function UpcomingPage() {
+  usePageTitle('Upcoming')
   const { user } = useAuth()
   const timeZone = zoneOf(user?.patient_profile)
   const doses = useAsync((signal) => api.get<Dose[]>('/api/doses/upcoming/', { signal, query: { days: DAYS } }))

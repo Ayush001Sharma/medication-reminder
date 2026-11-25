@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import type { MedicationAdherence } from '../../api/types'
 import { useElementWidth } from '../../hooks/useElementWidth'
+import { usePrefersReducedMotion } from '../../hooks/useReducedMotion'
 import { shortLabel } from '../../lib/report'
 
 const ROW_HEIGHT = 44
@@ -13,6 +14,7 @@ const ROW_HEIGHT = 44
  */
 export function MedicationBars({ medications }: { medications: MedicationAdherence[] }) {
   const [ref, width] = useElementWidth<HTMLDivElement>()
+  const reduced = usePrefersReducedMotion()
   const rows = medications
     .filter((m) => m.adherence_percent !== null)
     .map((m) => ({ id: m.medication_id, name: shortLabel(m.name), percent: Math.round(m.adherence_percent ?? 0) }))
@@ -52,7 +54,9 @@ export function MedicationBars({ medications }: { medications: MedicationAdheren
           background={{ fill: 'var(--color-subtle)', radius: 8 }}
           radius={8}
           maxBarSize={24}
-          isAnimationActive={false}
+          isAnimationActive={!reduced}
+          animationDuration={700}
+          animationEasing="ease-out"
         />
       </BarChart>
     </div>

@@ -2,7 +2,10 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { homePathFor, useAuth } from './auth/context'
 import { AppShell } from './components/layout/AppShell'
+import { Logo } from './components/layout/Logo'
+import { ButtonLink } from './components/ui/ButtonLink'
 import { ForbiddenPage } from './pages/ForbiddenPage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -16,17 +19,43 @@ import { MedicationsPage } from './pages/patient/MedicationsPage'
 import { TodayPage } from './pages/patient/TodayPage'
 import { UpcomingPage } from './pages/patient/UpcomingPage'
 
-/** "/" sends you where your role starts, or to sign-in. */
-function HomeRedirect() {
+/** "/" is the welcome page for visitors; someone who is already signed in goes straight to where their role starts. */
+function HomeRoute() {
   const { status, user } = useAuth()
   if (status === 'loading') return null
-  return <Navigate to={user ? homePathFor(user.role) : '/login'} replace />
+  return user ? <Navigate to={homePathFor(user.role)} replace /> : <LandingPage />
+}
+
+/** An unknown address: inside the app shell for signed-in people, on a plain page for visitors. Never a blank screen. */
+function NotFoundRoute() {
+  const { status, user } = useAuth()
+  if (status === 'loading') return null
+  if (user) {
+    return (
+      <AppShell>
+        <NotFoundPage />
+      </AppShell>
+    )
+  }
+  return (
+    <div className="min-h-dvh bg-cream text-ink">
+      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+        <Logo />
+        <ButtonLink to="/login" variant="ghost" size="md">
+          Sign in
+        </ButtonLink>
+      </header>
+      <main id="main" className="mx-auto max-w-5xl px-4 py-10">
+        <NotFoundPage />
+      </main>
+    </div>
+  )
 }
 
 export function App() {
   return (
     <Routes>
-      <Route index element={<HomeRedirect />} />
+      <Route index element={<HomeRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
@@ -50,9 +79,9 @@ export function App() {
           </Route>
 
           <Route path="/forbidden" element={<ForbiddenPage />} />
-          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>
+      <Route path="*" element={<NotFoundRoute />} />
     </Routes>
   )
 }

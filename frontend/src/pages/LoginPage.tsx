@@ -4,9 +4,12 @@ import { ApiError } from '../api/client'
 import { homePathFor, useAuth } from '../auth/context'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { DemoSection } from '../demo/DemoSection'
 import { AuthLayout } from './AuthLayout'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 export function LoginPage() {
+  usePageTitle('Sign in')
   const { login, status, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -64,6 +67,7 @@ export function LoginPage() {
           Create an account
         </Link>
       </p>
+      <DemoSection />
     </AuthLayout>
   )
 }

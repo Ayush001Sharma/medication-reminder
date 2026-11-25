@@ -1,8 +1,10 @@
 import { InvitationsPanel } from '../../components/access/InvitationsPanel'
 import { ButtonLink } from '../../components/ui/ButtonLink'
 import { PageHeader } from '../../components/ui/PageHeader'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function InvitationsPage() {
+  usePageTitle('Invitations')
   return (
     <>
       <PageHeader

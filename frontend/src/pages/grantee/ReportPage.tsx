@@ -13,6 +13,7 @@ import { InfoTip } from '../../components/ui/InfoTip'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingRegion, Skeleton } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
+import { usePageTitle } from '../../hooks/usePageTitle'
 import { isIsoDate, shortDate } from '../../lib/dates'
 import { ADHERENCE_DEFINITION, isNoAccess, isPatientId } from '../../lib/report'
 
@@ -168,6 +169,7 @@ export function ReportPage() {
     report.status === 'error' && !noAccess && report.error instanceof ApiError && report.error.status === 400 ? report.error.message : undefined
 
   const patientName = report.status === 'success' ? report.data.patient?.full_name : undefined
+  usePageTitle(noAccess ? 'Report not available' : patientName ? `Report for ${patientName}` : 'Adherence report')
   const description =
     report.status === 'success'
       ? `${patientName ? `${patientName} · ` : ''}${shortDate(report.data.range.from)} to ${shortDate(report.data.range.to)} (${report.data.range.timezone.replaceAll('_', ' ')})`

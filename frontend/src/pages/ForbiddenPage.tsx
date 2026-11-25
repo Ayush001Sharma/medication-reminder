@@ -1,8 +1,10 @@
 import { homePathFor, useAuth } from '../auth/context'
 import { ButtonLink } from '../components/ui/ButtonLink'
 import { EmptyState } from '../components/ui/EmptyState'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 export function ForbiddenPage() {
+  usePageTitle('Not available')
   const { user } = useAuth()
   return (
     <EmptyState

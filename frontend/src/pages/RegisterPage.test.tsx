@@ -119,3 +119,16 @@ describe('RegisterPage', () => {
     await expectNoA11yViolations(container)
   })
 })
+
+describe('RegisterPage: keyboard focus on API errors', () => {
+  it('moves focus to the first field the API rejected', async () => {
+    const register = vi.fn().mockRejectedValue(new ApiError(400, 'Enter a valid email address.', { email: ['Enter a valid email address.'], password: ['Too short.'] }))
+    renderWithProviders(<RegisterPage />, { auth: authValue(null, { register }) })
+    await userEvent.type(screen.getByLabelText('Full name'), 'Asha')
+    await userEvent.type(screen.getByLabelText('Email'), 'nope')
+    await userEvent.type(screen.getByLabelText('Password'), 'short')
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(await screen.findByText('Too short.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveFocus() // first in form order, not the last error
+  })
+})

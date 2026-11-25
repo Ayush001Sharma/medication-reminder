@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../../api/client'
 import type { Grant } from '../../api/types'
 import { useAuth } from '../../auth/context'
@@ -12,9 +12,11 @@ import { Modal } from '../../components/ui/Modal'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingRegion, SkeletonList } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
+import { useFocusFirstInvalid } from '../../hooks/useFocusFirstInvalid'
 import { dateOfInstant, zoneOf } from '../../lib/dates'
 import { displayName, roleLabel } from '../../lib/report'
 import { useToast } from '../../toast/context'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 /** Shown if the API does not send its own text. The API answers every valid email with the same sentence. */
 const NEUTRAL_CONFIRMATION =
@@ -26,6 +28,7 @@ function isEmail(value: string): boolean {
 
 /** Who may see the patient's reports: invite by email, see who has access, and revoke at any time. */
 export function SharingPage() {
+  usePageTitle('Sharing')
   const toast = useToast()
   const zone = zoneOf(useAuth().user?.patient_profile)
   const grants = useAsync((signal) => api.get<Grant[]>('/api/access/grants/', { signal }))
@@ -35,6 +38,8 @@ export function SharingPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const inviteForm = useRef<HTMLFormElement>(null)
+  useFocusFirstInvalid(inviteForm, emailError)
 
   const [target, setTarget] = useState<Grant | null>(null)
   const [revoking, setRevoking] = useState(false)
@@ -108,7 +113,7 @@ export function SharingPage() {
         <h2 id="invite-title" className="mb-4 font-display text-xl font-semibold text-ink">
           Invite someone
         </h2>
-        <form onSubmit={invite} noValidate className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
+        <form ref={inviteForm} onSubmit={invite} noValidate className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
           <Input
             label="Their email address"
             type="email"

@@ -27,6 +27,12 @@ async function fillAndSubmit(email = '  asha@example.com ', password = 'secret-p
 }
 
 describe('LoginPage', () => {
+  it('shows no demo mode unless the build turned it on', () => {
+    renderLogin(vi.fn())
+    expect(screen.queryByText(/Try as/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Demo mode')).not.toBeInTheDocument()
+  })
+
   it('signs in with a trimmed email and lands on the role home', async () => {
     const login = vi.fn<AuthValue['login']>().mockResolvedValue(makeUser('caregiver'))
     renderLogin(login)

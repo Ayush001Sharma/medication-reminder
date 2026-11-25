@@ -1,12 +1,16 @@
 import { Pie, PieChart } from 'recharts'
+import { useCountUp } from '../../hooks/useCountUp'
+import { usePrefersReducedMotion } from '../../hooks/useReducedMotion'
 
 /**
  * A donut showing adherence. Fixed size (no ResponsiveContainer) so it also renders in tests. Colours come
- * from the theme variables. The number in the middle is real text and the wrapper has a text alternative,
+ * from the theme variables. The ring sweeps in and the number counts up, unless the person prefers reduced motion. The number in the middle is real text and the wrapper has a text alternative,
  * so the chart is never the only carrier of the information.
  */
 export function AdherenceRing({ percent, size = 168 }: { percent: number | null; size?: number }) {
   const value = percent === null ? 0 : Math.max(0, Math.min(100, percent))
+  const reduced = usePrefersReducedMotion()
+  const counted = useCountUp(value, !reduced && percent !== null)
   const data = [
     { name: 'Taken', value, fill: 'var(--color-sage)' },
     { name: 'Remaining', value: 100 - value, fill: 'var(--color-subtle)' },
@@ -23,12 +27,14 @@ export function AdherenceRing({ percent, size = 168 }: { percent: number | null;
           innerRadius={size * 0.36}
           outerRadius={size * 0.5}
           stroke="none"
-          isAnimationActive={false}
+          isAnimationActive={!reduced}
+          animationDuration={900}
+          animationEasing="ease-out"
         />
       </PieChart>
       <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
         <span className="font-display text-3xl font-semibold text-ink">
-          {percent === null ? '–' : `${Math.round(value)}%`}
+          {percent === null ? '–' : `${Math.round(counted)}%`}
         </span>
       </div>
     </div>

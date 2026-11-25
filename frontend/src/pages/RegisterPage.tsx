@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import type { Role } from '../api/types'
@@ -9,8 +9,11 @@ import { Combobox } from '../components/ui/Combobox'
 import { Select } from '../components/ui/Select'
 import { timezoneChoices, timezoneOptions } from '../lib/timezones'
 import { AuthLayout } from './AuthLayout'
+import { useFocusFirstInvalid } from '../hooks/useFocusFirstInvalid'
+import { usePageTitle } from '../hooks/usePageTitle'
 
 export function RegisterPage() {
+  usePageTitle('Create account')
   const { register, status, user } = useAuth()
   const navigate = useNavigate()
   const detected = useMemo(() => timezoneOptions().detected, [])
@@ -23,6 +26,8 @@ export function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+  useFocusFirstInvalid(formRef, fieldErrors)
 
   if (status === 'authenticated' && user) return <Navigate to={homePathFor(user.role)} replace />
 
@@ -46,7 +51,7 @@ export function RegisterPage() {
 
   return (
     <AuthLayout title="Create your account" subtitle="Patients track their own doses. Caregivers and doctors see what patients choose to share.">
-      <form onSubmit={onSubmit} noValidate className="space-y-5">
+      <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
         {formError && (
           <p role="alert" className="rounded-2xl border border-danger bg-surface p-4 text-base font-medium text-danger">
             {formError}

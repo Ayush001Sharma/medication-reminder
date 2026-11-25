@@ -11,8 +11,10 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { LoadingRegion, Skeleton } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
 import { todayInZone, zoneOf } from '../../lib/dates'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export function NewMedicationPage() {
+  usePageTitle('Add medication')
   const { user } = useAuth()
   const timeZone = zoneOf(user?.patient_profile)
   return (
@@ -26,6 +28,7 @@ export function NewMedicationPage() {
 }
 
 export function EditMedicationPage() {
+  usePageTitle('Edit medication')
   const { id = '' } = useParams()
   const { user } = useAuth()
   const timeZone = zoneOf(user?.patient_profile)

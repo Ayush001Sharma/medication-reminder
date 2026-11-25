@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { MemoryRouter } from 'react-router-dom'
@@ -296,6 +296,25 @@ describe('Toasts', () => {
     expect(screen.queryByText('Could not save.')).not.toBeInTheDocument()
   })
 
+  it('waits while the pointer is over a toast or focus is inside it, then carries on', () => {
+    vi.useFakeTimers()
+    mount()
+    act(() => screen.getByText('ok').click())
+    const toast = screen.getByRole('status')
+    act(() => void fireEvent.mouseEnter(toast))
+    act(() => vi.advanceTimersByTime(20000))
+    expect(screen.getByText('Saved.')).toBeInTheDocument() // still there after far longer than 6 s
+    act(() => void fireEvent.mouseLeave(toast))
+    act(() => vi.advanceTimersByTime(6100))
+    expect(screen.queryByText('Saved.')).not.toBeInTheDocument()
+
+    act(() => screen.getByText('info').click())
+    const info = screen.getByText('FYI').closest('[role="status"]') as HTMLElement
+    act(() => void fireEvent.focus(info.querySelector('button') as HTMLElement))
+    act(() => vi.advanceTimersByTime(20000))
+    expect(screen.getByText('FYI')).toBeInTheDocument()
+  })
+
   it('keeps at most four on screen', async () => {
     mount()
     for (let i = 0; i < 7; i++) await userEvent.click(screen.getByText('info'))
@@ -316,5 +335,16 @@ describe('Toasts', () => {
     await userEvent.click(screen.getByText('ok'))
     await userEvent.click(screen.getByText('fail'))
     await expectNoA11yViolations(document.body)
+  })
+})
+
+describe('Modal: description for assistive technology', () => {
+  it('is described by its body text, as well as named by its title', () => {
+    render(
+      <Modal open onClose={() => undefined} title="Stop it?">
+        <p>This cannot be undone.</p>
+      </Modal>,
+    )
+    expect(screen.getByRole('dialog', { name: 'Stop it?', description: 'This cannot be undone.' })).toHaveAttribute('aria-modal', 'true')
   })
 })

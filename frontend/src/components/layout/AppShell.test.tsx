@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Route, Routes } from 'react-router-dom'
+import { Link, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import type { Role } from '../../api/types'
 import { expectNoA11yViolations } from '../../test/axe'
@@ -101,5 +101,42 @@ describe('user menu', () => {
       { auth: authValue(makeUser('caregiver', { full_name: '' })) },
     )
     expect(screen.getByRole('button', { name: /account menu for caregiver@example\.com/i })).toBeInTheDocument()
+  })
+})
+
+describe('AppShell: focus and transitions on navigation', () => {
+  function Pages() {
+    return (
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/today" element={<><h1>Today</h1><Link to="/upcoming">go</Link></>} />
+          <Route path="/upcoming" element={<><h1>Upcoming</h1><Link to="/upcoming?page=2">more</Link></>} />
+        </Route>
+      </Routes>
+    )
+  }
+  const mount = () => renderWithProviders(<Pages />, { route: '/today', auth: authValue(makeUser('patient')) })
+
+  it('leaves focus alone on the first render', () => {
+    mount()
+    expect(document.body).toHaveFocus()
+  })
+
+  it('moves focus to the main content (and wraps it for the page transition) when another page opens', async () => {
+    mount()
+    const first = screen.getByRole('main').firstElementChild as HTMLElement
+    expect(first).toHaveClass('animate-page')
+    await userEvent.click(screen.getByRole('link', { name: 'go' }))
+    expect(screen.getByRole('main')).toHaveFocus()
+    expect(screen.getByRole('heading', { name: 'Upcoming' })).toBeInTheDocument()
+    expect(screen.getByRole('main').firstElementChild).not.toBe(first) // a fresh element, so the transition replays
+  })
+
+  it('does not steal focus when only the query string changes (pagination)', async () => {
+    mount()
+    await userEvent.click(screen.getByRole('link', { name: 'go' }))
+    const more = screen.getByRole('link', { name: 'more' })
+    await userEvent.click(more)
+    expect(more).toHaveFocus()
   })
 })

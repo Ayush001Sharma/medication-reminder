@@ -19,6 +19,7 @@ interface ModalProps {
  */
 export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   const titleId = useId()
+  const bodyId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
 
@@ -79,6 +80,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={bodyId}
         tabIndex={-1}
         className="w-full max-w-lg animate-rise rounded-2xl bg-surface p-6 shadow-lift focus:outline-none"
       >
@@ -97,7 +99,9 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
             </svg>
           </button>
         </div>
-        <div className="text-base text-ink">{children}</div>
+        <div id={bodyId} className="text-base text-ink">
+          {children}
+        </div>
         {footer && <div className="mt-6 flex flex-wrap justify-end gap-3">{footer}</div>}
       </div>
     </div>,

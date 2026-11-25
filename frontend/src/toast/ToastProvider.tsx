@@ -21,14 +21,22 @@ const toneClasses: Record<ToastTone, string> = {
 }
 
 function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
+  // The clock stops while the pointer is over the toast or focus is inside it, so it never vanishes while being read
+  // or while its button is about to be pressed (WCAG 2.2.1 "timing adjustable").
+  const [paused, setPaused] = useState(false)
   useEffect(() => {
+    if (paused) return
     const timer = window.setTimeout(() => onDismiss(item.id), item.durationMs)
     return () => window.clearTimeout(timer)
-  }, [item.id, item.durationMs, onDismiss])
+  }, [item.id, item.durationMs, onDismiss, paused])
 
   return (
     <div
       role={item.tone === 'error' ? 'alert' : 'status'}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
       className={cx(
         'pointer-events-auto flex w-full max-w-md animate-rise items-start gap-3 rounded-2xl border p-4 shadow-lift',
         toneClasses[item.tone],

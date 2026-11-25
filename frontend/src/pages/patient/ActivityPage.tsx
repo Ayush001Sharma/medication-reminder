@@ -14,11 +14,13 @@ import { LoadingRegion, SkeletonList } from '../../components/ui/Skeleton'
 import { useAsync } from '../../hooks/useAsync'
 import { formatInstant, shortDate, zoneOf } from '../../lib/dates'
 import { roleLabel } from '../../lib/report'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 export const ACTIVITY_PAGE_SIZE = 20
 
 /** Who looked at the patient's data, newest first, 20 to a page. The page number lives in the address (?page=2). */
 export function ActivityPage() {
+  usePageTitle('Activity')
   const zone = zoneOf(useAuth().user?.patient_profile)
   const [params, setParams] = useSearchParams()
   const requested = Number.parseInt(params.get('page') ?? '1', 10)

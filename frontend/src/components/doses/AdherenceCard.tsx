@@ -15,7 +15,7 @@ export function AdherenceCard() {
   const report = useAsync((signal) => api.get<AdherenceReport>('/api/reports/adherence/', { signal }))
   return (
     // md:mt-11 lines the card up with the first dose card (the list beside it has a heading above its cards).
-    <Card as="section" aria-labelledby="adherence-title" className="md:mt-11">
+    <Card as="section" aria-labelledby="adherence-title" className="self-start md:mt-11">
       <CardTitle id="adherence-title" className="mb-4">
         Last 30 days
       </CardTitle>

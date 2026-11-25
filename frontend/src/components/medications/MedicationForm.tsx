@@ -233,7 +233,7 @@ export function MedicationForm({ mode, timeZone, today, medication, schedule, ot
                   aria-label={day.long}
                   onClick={() => toggleDay(day.value)}
                   className={cx(
-                    'min-h-11 min-w-14 rounded-2xl border px-3 text-base font-semibold transition duration-150',
+                    'min-h-11 min-w-14 rounded-2xl border px-3 text-base font-semibold transition duration-150 motion-safe:active:scale-95',
                     selected ? 'border-sage-dark bg-sage-dark text-surface' : 'border-sage bg-surface text-ink hover:bg-sage-tint',
                   )}
                 >

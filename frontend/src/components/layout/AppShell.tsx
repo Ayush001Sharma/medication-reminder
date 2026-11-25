@@ -1,3 +1,4 @@
+import { useEffect, useRef, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/context'
 import { cx } from '../../lib/cx'
@@ -11,10 +12,20 @@ import { UserMenu } from './UserMenu'
  * The frame around every signed-in page: a top bar (logo, navigation for this role, user menu) and, on
  * small screens, a bottom tab bar within thumb reach. Exactly one of the two navigations is visible.
  */
-export function AppShell() {
+export function AppShell({ children }: { children?: ReactNode } = {}) {
   const { user } = useAuth()
   const items = user ? navFor(user.role) : []
   const location = useLocation()
+  const mainRef = useRef<HTMLElement>(null)
+  const lastPath = useRef(location.pathname)
+
+  // A single-page app does not reload, so after moving to another page put keyboard and screen-reader focus at the
+  // top of the new content (the page title is announced too). The first render and same-page changes (?page=2) are left alone.
+  useEffect(() => {
+    if (lastPath.current === location.pathname) return
+    lastPath.current = location.pathname
+    mainRef.current?.focus()
+  }, [location.pathname])
 
   return (
     <div className="min-h-dvh bg-cream text-ink">
@@ -36,7 +47,7 @@ export function AppShell() {
                   to={item.to}
                   className={({ isActive }) =>
                     cx(
-                      'flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold transition duration-150',
+                      'flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold transition duration-150 motion-safe:active:scale-95',
                       isActive ? 'bg-sage-tint text-sage-dark' : 'text-ink hover:bg-subtle',
                     )
                   }
@@ -51,9 +62,11 @@ export function AppShell() {
         </div>
       </header>
 
-      <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-4 pb-28 pt-8 focus:outline-none md:pb-12 md:pt-10">
+      <main ref={mainRef} id="main" tabIndex={-1} className="mx-auto max-w-5xl px-4 pb-28 pt-8 focus:outline-none md:pb-12 md:pt-10">
         <ErrorBoundary key={location.pathname}>
-          <Outlet />
+          <div key={location.pathname} className="animate-page">
+            {children ?? <Outlet />}
+          </div>
         </ErrorBoundary>
       </main>
 
@@ -68,7 +81,7 @@ export function AppShell() {
                 to={item.to}
                 className={({ isActive }) =>
                   cx(
-                    'mx-1 my-1.5 flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 text-xs font-semibold transition duration-150',
+                    'mx-1 my-1.5 flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 text-xs font-semibold transition duration-150 motion-safe:active:scale-95',
                     isActive ? 'bg-sage-tint text-sage-dark' : 'text-ink hover:bg-subtle',
                   )
                 }

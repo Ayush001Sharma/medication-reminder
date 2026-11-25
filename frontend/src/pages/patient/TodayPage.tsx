@@ -15,6 +15,7 @@ import { useAsync } from '../../hooks/useAsync'
 import { longDate, todayInZone, zoneOf } from '../../lib/dates'
 import { conflictMessage, countTaken, groupByDayPart, optimisticDose, type DoseAction } from '../../lib/doses'
 import { useToast } from '../../toast/context'
+import { usePageTitle } from '../../hooks/usePageTitle'
 
 /** Optimistic changes belong to one batch of server data; when fresh data arrives they are dropped. */
 interface Overrides {
@@ -23,6 +24,7 @@ interface Overrides {
 }
 
 export function TodayPage() {
+  usePageTitle('Today')
   const { user } = useAuth()
   const toast = useToast()
   const timeZone = zoneOf(user?.patient_profile)

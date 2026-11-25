@@ -209,3 +209,13 @@ describe('SharingPage: revoking', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
+
+describe('SharingPage: keyboard focus on errors', () => {
+  it('moves focus to the email field when it is invalid', async () => {
+    vi.spyOn(api, 'get').mockResolvedValue([] as never)
+    render()
+    await send()
+    expect(await screen.findByText('Enter their email address.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Their email address')).toHaveFocus()
+  })
+})

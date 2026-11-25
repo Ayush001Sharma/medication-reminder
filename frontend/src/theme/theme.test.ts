@@ -139,6 +139,7 @@ describe('source rules', () => {
       join('src', 'components', 'ui', 'EmptyState.tsx'), // white panel
       join('src', 'components', 'layout', 'UserMenu.tsx'), // white dropdown
       join('src', 'pages', 'AuthLayout.tsx'), // white card
+      join('src', 'pages', 'LandingPage.tsx'), // the three feature cards are white
     ]
     const using = files.filter((f) => /\btext-muted\b|placeholder:text-muted/.test(f.text)).map((f) => f.path)
     expect(using.filter((path) => !allowed.includes(path))).toEqual([])
@@ -160,6 +161,48 @@ describe('source rules', () => {
   it('does not put secrets or tokens in the VITE_ environment file', () => {
     const env = readFileSync(join(ROOT, '.env.example'), 'utf8')
     const variables = [...env.matchAll(/^(?!#)\s*([A-Z_]+)=/gm)].map((m) => m[1])
-    expect(variables).toEqual(['VITE_API_BASE_URL'])
+    expect(variables).toEqual([
+      'VITE_API_BASE_URL',
+      'VITE_DEMO_MODE',
+      'VITE_DEMO_PASSWORD',
+      'VITE_DEMO_PATIENT_KOLKATA_EMAIL',
+      'VITE_DEMO_PATIENT_NEW_YORK_EMAIL',
+      'VITE_DEMO_CAREGIVER_EMAIL',
+      'VITE_DEMO_DOCTOR_EMAIL',
+    ])
+    expect(env).toMatch(/^VITE_DEMO_MODE=false$/m) // demo mode is off unless someone turns it on
+    // The only secret-looking value allowed is the public seed_demo development password, and only that one.
+    const values = Object.fromEntries([...env.matchAll(/^(?!#)\s*([A-Z_]+)=(.*)$/gm)].map((m) => [m[1], m[2]]))
+    expect(values.VITE_DEMO_PASSWORD).toBe('demo-password-123')
+  })
+
+  it('has a favicon, a theme colour, a description and the page language in index.html', () => {
+    const html = readFileSync(join(ROOT, 'index.html'), 'utf8')
+    expect(html).toMatch(/<html lang="en">/)
+    expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/)
+    expect(html).toMatch(/<meta name="theme-color" content="#FAF7F0"/)
+    expect(html).toMatch(/<meta name="description" content="[^"]{20,}"/)
+    const icon = readFileSync(join(ROOT, 'public', 'favicon.svg'), 'utf8')
+    expect(icon).toContain('<svg')
+    expect(icon).not.toMatch(/https?:\/\/(?!www\.w3\.org)/) // nothing external
+  })
+
+  it('keeps the demo accounts matching the seed_demo command', () => {
+    const seed = readFileSync(join(ROOT, '..', 'accounts', 'management', 'commands', 'seed_demo.py'), 'utf8')
+    const accounts = readFileSync(join(SRC, 'demo', 'accounts.ts'), 'utf8')
+    const env = readFileSync(join(ROOT, '.env.example'), 'utf8')
+    expect(seed).toContain('DEFAULT_DEMO_PASSWORD = "demo-password-123"')
+    for (const email of ['demo.asha@example.com', 'demo.ben@example.com', 'demo.carla@example.com', 'demo.dr.rao@example.com']) {
+      expect(seed, email).toContain(email)
+      expect(accounts, email).toContain(email)
+      expect(env, email).toContain(email)
+    }
+  })
+
+  it('reads demo credentials only inside src/demo, so they cannot leak into the normal app', () => {
+    const outside = files.filter((f) => !f.path.startsWith(join('src', 'demo')) && /VITE_DEMO_(?!MODE)|demo-password/.test(f.text)).map((f) => f.path)
+    expect(outside).toEqual([join('src', 'vite-env.d.ts')]) // only the type declaration
+    const flagUsers = files.filter((f) => /import\.meta\.env\.VITE_DEMO_MODE/.test(f.text)).map((f) => f.path).sort()
+    expect(flagUsers).toEqual([join('src', 'demo', 'DemoSection.tsx')]) // the one switch
   })
 })
