@@ -1,7 +1,8 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/context'
 import { cx } from '../../lib/cx'
 import { NavIcon } from './icons'
+import { ErrorBoundary } from './ErrorBoundary'
 import { Logo } from './Logo'
 import { navFor } from './navigation'
 import { UserMenu } from './UserMenu'
@@ -13,6 +14,7 @@ import { UserMenu } from './UserMenu'
 export function AppShell() {
   const { user } = useAuth()
   const items = user ? navFor(user.role) : []
+  const location = useLocation()
 
   return (
     <div className="min-h-dvh bg-cream text-ink">
@@ -50,7 +52,9 @@ export function AppShell() {
       </header>
 
       <main id="main" tabIndex={-1} className="mx-auto max-w-5xl px-4 pb-28 pt-8 focus:outline-none md:pb-12 md:pt-10">
-        <Outlet />
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       <nav

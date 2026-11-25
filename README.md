@@ -639,8 +639,7 @@ prefetch links. Settings fail loudly at startup rather than running misconfigure
 The `frontend/` folder is a single-page app: React 18, Vite, TypeScript, Tailwind CSS 4, React Router, Recharts, tested with
 Vitest and React Testing Library. Fonts (DM Sans for text, Fraunces for headings) are self-hosted from `@fontsource`
 packages: nothing is loaded from a CDN. It has the app shell, authentication, role-based routing, the component library and
-the **patient screens** (below). A caregiver/doctor's *Patients* page exists; *Sharing*, *Activity* and *Invitations* are
-routed placeholders waiting to be built.
+the **patient screens** and the **caregiver / doctor screens** (below). Every page in the navigation is now real.
 
 **Patient screens.**
 
@@ -650,6 +649,19 @@ routed placeholders waiting to be built.
 | Today | Today's doses in the patient's local time, grouped Morning / Afternoon / Evening / Night, each with medication, dosage, local time and a status chip (Pending, Reminded, Taken, Missed, Skipped, Taken late). **Taken** and **Skip** update the screen at once and roll back with a "Try again" toast if the server refuses. A `409` (for example skipping a dose that was already taken) shows a plain-language message and refreshes the list without a loading flash. Calm empty state when nothing is scheduled |
 | Upcoming | The next 7 days of doses, grouped by day |
 | Medications | Medications with their schedules; **Add medication** (name, dosage, dates, time chips, day-of-week toggles), **Edit**, and **Stop** (deactivate) behind a confirmation dialog. API validation errors are shown on the matching field |
+
+| Sharing | Invite a caregiver or doctor by email. The confirmation is the same sentence for every address (the API never reveals whether an account exists). Lists people with access and pending invitations; **Revoke access** / **Cancel invitation** each ask for confirmation first |
+| Activity | Who viewed the patient's report or was emailed a weekly summary, newest first, 20 per page (`?page=2`), times in the patient's own timezone |
+
+**Caregiver and doctor screens.**
+
+| Screen | What it does |
+|---|---|
+| Patients (home) | A **Pending invitations** area with an Accept button each (the patient list refreshes at once), then the patients who granted access, with a clear empty state. The same invitations area is also on its own *Invitations* page |
+| Adherence report (`/patients/:id`) | Date range picker (default: last 30 days in the patient's timezone; at most 366 days; kept in the address as `?from=&to=`). A large sage donut with the percentage, counts of taken, missed, skipped and taken late, the current streak, and a per-medication bar chart (Recharts, palette colours) with the same numbers repeated as text. An info tooltip states the definition: **taken ÷ (taken + missed)**. A null percentage shows a friendly message instead of a number; a period with no doses shows an empty state |
+| No access | The API answers 404 for a revoked, unknown or never-granted patient (and the app treats a malformed id the same way). The report page shows a calm "This report isn't available" message with a way back, never an error screen. Viewing a report is written to the patient's access log by the API |
+
+A last-resort error boundary inside the app shell turns an unexpected rendering failure into a "Something went wrong on this page" message with Try again, so navigation keeps working.
 
 Every page has a loading skeleton, an error state with a retry button, and a responsive layout (bottom tab bar on phones, top
 navigation on wider screens).
@@ -722,18 +734,19 @@ Status chips always carry a word ("Missed", "Taken late"), never colour alone.
 **Tests** (`npm test`): the API client (refresh-once, single-flight, logout on every refresh-failure path, no refresh for
 sign-in calls, error messages, `VITE_API_BASE_URL`), the token store (never `localStorage`), route protection for every role,
 the auth provider, the shell and navigation per role, every component, each page's loading / empty / error states, the Today page's actions
-(optimistic update, rollback, 409, double-click guard), the medication form's validation, the design
+(optimistic update, rollback, 409, double-click guard), the medication form's validation, the report page's states (loading, data, empty, null percentage, no access, range validation), the Sharing and Activity pages, invitation accepting, the design
 tokens, and an axe-core accessibility audit of the shell, forms, dialog and pages. Contrast is not testable in jsdom, so it is
 verified from the tokens and in a real browser.
 
 **CI.** The `frontend` job in `.github/workflows/tests.yml` runs `npm ci`, lint, type-check, tests and build on every push.
 
-**Frontend limitations.** Sharing, the audit log, invitations and the per-patient report view are not built yet; the API for
-all of them exists. **There is no real undo** for a dose: the API treats taken and skipped as final (a taken dose cannot be
-skipped, and nothing reverses it), so instead of a fake undo the app rolls back and offers "Try again" when a request fails.
-A stopped medication cannot be reactivated (the API has no such action); add it again as a new medication. There is no
-server-side sign-out (the backend has no token blacklist), so signing out forgets the tokens in the browser only. The
-production build is not deployed anywhere.
+**Frontend limitations.** There is no weekly-summary or notification-preference screen yet, and no report view for a patient
+beyond the *Last 30 days* card on Today. **There is no real undo** for a dose: the API treats taken and skipped as final (a
+taken dose cannot be skipped, and nothing reverses it), so instead of a fake undo the app rolls back and offers "Try again"
+when a request fails. A stopped medication cannot be reactivated (the API has no such action); add it again as a new
+medication. A revoked invitation cannot be re-accepted: the patient invites again. There is no server-side sign-out (the
+backend has no token blacklist), so signing out forgets the tokens in the browser only. The production build is not deployed
+anywhere.
 
 ## Project layout
 

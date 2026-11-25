@@ -85,6 +85,7 @@ describe('the real route table', () => {
   it.each([
     ['patient', '/patients'],
     ['patient', '/invitations'],
+    ['patient', '/patients/5'],
     ['caregiver', '/today'],
     ['caregiver', '/sharing'],
     ['doctor', '/medications'],
@@ -108,6 +109,14 @@ describe('the real route table', () => {
       ['/medications/new', 'Add medication'], ['/medications/1/edit', 'Edit medication'], ['/sharing', 'Sharing'], ['/activity', 'Activity'],
     ] as const) {
       const { unmount } = visit('patient', route)
+      expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it.each([['caregiver'], ['doctor']] as const)('lets a %s reach the invitations page and a patient report', (role) => {
+    for (const [route, heading] of [['/patients', 'Patients'], ['/invitations', 'Invitations'], ['/patients/5', 'Adherence report']] as const) {
+      const { unmount } = visit(role, route)
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
       unmount()
     }

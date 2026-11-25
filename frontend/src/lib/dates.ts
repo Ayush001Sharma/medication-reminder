@@ -77,3 +77,24 @@ export function timeInZone(isoInstant: string, timeZone: string): string {
 export function zoneOf(profile: { timezone: string } | null | undefined): string {
   return profile?.timezone || 'UTC'
 }
+
+/** How many calendar days lie in an inclusive range ("2026-11-01" to "2026-11-01" is 1). */
+export function daysInRange(from: string, to: string): number {
+  const a = parts(from)
+  const b = parts(to)
+  if (!a || !b) return Number.NaN
+  return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000) + 1
+}
+
+/** "25 Nov 2026, 14:05": an instant written in the given timezone. */
+export function formatInstant(isoInstant: string, timeZone: string): string {
+  const date = new Date(isoInstant)
+  if (Number.isNaN(date.getTime())) return isoInstant
+  return `${shortDate(todayInZone(timeZone, date))}, ${timeInZone(isoInstant, timeZone)}`
+}
+
+/** "25 Nov 2026": the calendar date of an instant in the given timezone. */
+export function dateOfInstant(isoInstant: string, timeZone: string): string {
+  const date = new Date(isoInstant)
+  return Number.isNaN(date.getTime()) ? isoInstant : shortDate(todayInZone(timeZone, date))
+}

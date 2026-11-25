@@ -5,9 +5,12 @@ import { AppShell } from './components/layout/AppShell'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { InvitationsPage } from './pages/grantee/InvitationsPage'
 import { PatientsPage } from './pages/grantee/PatientsPage'
+import { ReportPage } from './pages/grantee/ReportPage'
+import { ActivityPage } from './pages/patient/ActivityPage'
+import { SharingPage } from './pages/patient/SharingPage'
 import { EditMedicationPage, NewMedicationPage } from './pages/patient/MedicationFormPages'
 import { MedicationsPage } from './pages/patient/MedicationsPage'
 import { TodayPage } from './pages/patient/TodayPage'
@@ -36,22 +39,14 @@ export function App() {
             <Route path="/medications" element={<MedicationsPage />} />
             <Route path="/medications/new" element={<NewMedicationPage />} />
             <Route path="/medications/:id/edit" element={<EditMedicationPage />} />
-            <Route
-              path="/sharing"
-              element={<PlaceholderPage title="Sharing" icon="sharing" description="Invite a caregiver or doctor and choose who can see your reports." />}
-            />
-            <Route
-              path="/activity"
-              element={<PlaceholderPage title="Activity" icon="activity" description="See who has viewed your adherence information." />}
-            />
+            <Route path="/sharing" element={<SharingPage />} />
+            <Route path="/activity" element={<ActivityPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={['caregiver', 'doctor']} />}>
             <Route path="/patients" element={<PatientsPage />} />
-            <Route
-              path="/invitations"
-              element={<PlaceholderPage title="Invitations" icon="invitations" description="Accept invitations from patients who want to share their reports with you." />}
-            />
+            <Route path="/patients/:patientId" element={<ReportPage />} />
+            <Route path="/invitations" element={<InvitationsPage />} />
           </Route>
 
           <Route path="/forbidden" element={<ForbiddenPage />} />
