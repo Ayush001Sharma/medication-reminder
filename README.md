@@ -404,6 +404,16 @@ command, configuration validation (bad settings are started in a subprocess and 
 test that fails if an environment variable is read by the code but missing from `.env.example` or this README.
 Coverage is above 95% and CI enforces that floor.
 
+**A Celery detail the threaded tests depend on.** Tests run Celery in eager mode (tasks run in the calling thread). In that
+mode Celery raises its "never call `result.get()` inside a task" guard for the length of each `task.delay()`, using one
+process-wide flag that it saves and restores without a lock. When several threads launch tasks at once (the concurrency
+tests do, on purpose) the restores can happen out of order and leave the flag stuck on, and then an unrelated later
+`.get()` fails with `RuntimeError: Never call result.get() within a task!`. It depends on timing, so it appeared once on a
+slow CI runner (Python 3.12) and not on a quiet machine, although the flaw is in Celery and not specific to one Python
+version. `conftest.py` therefore replaces Celery's context manager with a locked, counting one (same behaviour, cannot stick),
+fails the test that leaves the flag raised, and `tests/test_celery_join_guard.py` pins all of it down deterministically.
+Production is not affected: eager mode is only switched on in the test fixtures.
+
 ## API overview and examples
 
 Interactive documentation: **http://localhost:8000/api/docs/** (schema at `/api/schema/`). Protected endpoints take
