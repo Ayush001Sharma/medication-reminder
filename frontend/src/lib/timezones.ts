@@ -19,6 +19,11 @@ const RENAMED: Record<string, string> = {
 
 const FALLBACK = ['UTC', 'Asia/Kolkata', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney']
 
+/** The old names that now map to this zone. */
+export function formerNames(zone: string): string[] {
+  return Object.entries(RENAMED).filter(([, current]) => current === zone).map(([old]) => old)
+}
+
 export function canonicalZone(name: string): string {
   return RENAMED[name] ?? name
 }
@@ -29,4 +34,38 @@ export function timezoneOptions(): { all: string[]; detected: string } {
   const detected = canonicalZone(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
   const all = [...new Set(['UTC', detected, ...supported.map(canonicalZone)])].sort((a, b) => a.localeCompare(b))
   return { all, detected }
+}
+
+export interface ZoneChoice {
+  value: string
+  /** "America/New York": underscores read as spaces. */
+  label: string
+  /** The current UTC offset, e.g. "GMT+5:30", so people can also search by offset. */
+  detail: string
+  /** Former names (Asia/Calcutta for Asia/Kolkata), searched but not shown. */
+  keywords: string
+}
+
+let cachedChoices: ZoneChoice[] | null = null
+
+function offsetOf(zone: string, now: Date): string {
+  try {
+    const part = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'shortOffset' })
+      .formatToParts(now)
+      .find((p) => p.type === 'timeZoneName')
+    return part?.value ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** Every zone as a combobox option, computed once (looking up 400+ offsets is not free). */
+export function timezoneChoices(now: Date = new Date()): ZoneChoice[] {
+  cachedChoices ??= timezoneOptions().all.map((zone) => ({
+    value: zone,
+    label: zone.replaceAll('_', ' '),
+    detail: offsetOf(zone, now),
+    keywords: formerNames(zone).join(' '),
+  }))
+  return cachedChoices
 }

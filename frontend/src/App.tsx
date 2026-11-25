@@ -8,7 +8,10 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { PatientsPage } from './pages/grantee/PatientsPage'
+import { EditMedicationPage, NewMedicationPage } from './pages/patient/MedicationFormPages'
+import { MedicationsPage } from './pages/patient/MedicationsPage'
 import { TodayPage } from './pages/patient/TodayPage'
+import { UpcomingPage } from './pages/patient/UpcomingPage'
 
 /** "/" sends you where your role starts, or to sign-in. */
 function HomeRedirect() {
@@ -29,10 +32,10 @@ export function App() {
         <Route element={<AppShell />}>
           <Route element={<ProtectedRoute roles={['patient']} />}>
             <Route path="/today" element={<TodayPage />} />
-            <Route
-              path="/medications"
-              element={<PlaceholderPage title="Medications" icon="medications" description="Add prescriptions and set their dose times. This page is next." />}
-            />
+            <Route path="/upcoming" element={<UpcomingPage />} />
+            <Route path="/medications" element={<MedicationsPage />} />
+            <Route path="/medications/new" element={<NewMedicationPage />} />
+            <Route path="/medications/:id/edit" element={<EditMedicationPage />} />
             <Route
               path="/sharing"
               element={<PlaceholderPage title="Sharing" icon="sharing" description="Invite a caregiver or doctor and choose who can see your reports." />}

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cx } from '../lib/cx'
-import { ToastContext, type ToastApi, type ToastTone } from './context'
+import { ToastContext, type ToastApi, type ToastOptions, type ToastTone } from './context'
 
 interface ToastItem {
   id: number
   tone: ToastTone
   message: string
   durationMs: number
+  action?: ToastOptions['action']
 }
 
 /*
@@ -34,6 +35,18 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) =
       )}
     >
       <p className="flex-1 text-base font-medium">{item.message}</p>
+      {item.action && (
+        <button
+          type="button"
+          onClick={() => {
+            onDismiss(item.id)
+            item.action?.onClick()
+          }}
+          className="-my-1 min-h-11 shrink-0 rounded-xl px-3 text-base font-semibold underline underline-offset-4 transition duration-150 hover:bg-subtle"
+        >
+          {item.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onDismiss(item.id)}
@@ -56,15 +69,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const show = useCallback<ToastApi['show']>((tone, message, options) => {
     const id = nextId.current++
-    setItems((current) => [...current.slice(-3), { id, tone, message, durationMs: options?.durationMs ?? 6000 }])
+    setItems((current) => [
+      ...current.slice(-3),
+      // A toast with a button gets longer to read and act on.
+      { id, tone, message, action: options?.action, durationMs: options?.durationMs ?? (options?.action ? 10000 : 6000) },
+    ])
   }, [])
 
   const api = useMemo<ToastApi>(
     () => ({
       show,
-      success: (message) => show('success', message),
-      error: (message) => show('error', message, { durationMs: 9000 }),
-      info: (message) => show('info', message),
+      success: (message, options) => show('success', message, options),
+      error: (message, options) => show('error', message, { durationMs: 9000, ...options }),
+      info: (message, options) => show('info', message, options),
     }),
     [show],
   )

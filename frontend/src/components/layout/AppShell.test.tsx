@@ -21,10 +21,10 @@ function renderShell(role: Role, route = '/') {
 const linkLabels = (nav: HTMLElement) => within(nav).getAllByRole('link').map((link) => link.textContent)
 
 describe('AppShell navigation follows the role', () => {
-  it('patients get Today, Medications, Sharing and Activity', () => {
+  it('patients get Today, Upcoming, Medications, Sharing and Activity', () => {
     renderShell('patient')
-    expect(linkLabels(screen.getByRole('navigation', { name: 'Main' }))).toEqual(['Today', 'Medications', 'Sharing', 'Activity'])
-    expect(linkLabels(screen.getByRole('navigation', { name: 'Main (mobile)' }))).toEqual(['Today', 'Medications', 'Sharing', 'Activity'])
+    expect(linkLabels(screen.getByRole('navigation', { name: 'Main' }))).toEqual(['Today', 'Upcoming', 'Medications', 'Sharing', 'Activity'])
+    expect(linkLabels(screen.getByRole('navigation', { name: 'Main (mobile)' }))).toEqual(['Today', 'Upcoming', 'Medications', 'Sharing', 'Activity'])
   })
 
   it.each<Role>(['caregiver', 'doctor'])('%ss get Patients and Invitations only', (role) => {

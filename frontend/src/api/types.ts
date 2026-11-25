@@ -54,3 +54,28 @@ export interface AccessiblePatient {
   full_name: string
   timezone: string
 }
+
+export interface Medication {
+  id: number
+  name: string
+  dosage: string
+  instructions: string
+  start_date: string
+  end_date: string | null
+  is_active: boolean
+}
+
+export interface Schedule {
+  id: number
+  /** "HH:MM" local wall-clock times. */
+  times_of_day: string[]
+  /** 0 = Monday ... 6 = Sunday. */
+  days_of_week: number[]
+  start_date: string
+  end_date: string | null
+  is_active: boolean
+}
+
+export interface MedicationWithSchedules extends Medication {
+  schedules: Schedule[]
+}

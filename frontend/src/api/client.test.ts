@@ -204,6 +204,16 @@ describe('error messages', () => {
     expect(error.message).toBe('A user with this email already exists.')
   })
 
+  it("flattens DRF's nested list errors (a bad item in a list field)", async () => {
+    const { client } = setup(() => json(400, { times_of_day: { '0': ['Time has wrong format. Use one of these formats instead: hh:mm.'] }, days_of_week: [['Ensure this value is less than or equal to 6.']] }))
+    const error = (await client.post('/api/medications/1/schedules/', {}).catch((e: ApiError) => e)) as ApiError
+    expect(error.fieldErrors).toEqual({
+      times_of_day: 'Time has wrong format. Use one of these formats instead: hh:mm.',
+      days_of_week: 'Ensure this value is less than or equal to 6.',
+    })
+    expect(error.message).toBe('Time has wrong format. Use one of these formats instead: hh:mm.')
+  })
+
   it('lets an aborted request surface as an AbortError, not an ApiError', async () => {
     const controller = new AbortController()
     const { client } = setup(() => {

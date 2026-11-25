@@ -5,19 +5,21 @@ import type { Role } from '../api/types'
 import { homePathFor, useAuth } from '../auth/context'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { Combobox } from '../components/ui/Combobox'
 import { Select } from '../components/ui/Select'
-import { timezoneOptions } from '../lib/timezones'
+import { timezoneChoices, timezoneOptions } from '../lib/timezones'
 import { AuthLayout } from './AuthLayout'
 
 export function RegisterPage() {
   const { register, status, user } = useAuth()
   const navigate = useNavigate()
-  const zones = useMemo(() => timezoneOptions(), [])
+  const detected = useMemo(() => timezoneOptions().detected, [])
+  const choices = useMemo(() => timezoneChoices(), [])
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Role>('patient')
-  const [timezone, setTimezone] = useState(zones.detected)
+  const [timezone, setTimezone] = useState(detected)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -68,19 +70,15 @@ export function RegisterPage() {
           <option value="doctor">Doctor</option>
         </Select>
         {role === 'patient' && (
-          <Select
+          <Combobox
             label="Your timezone"
-            hint="Reminders are sent at your local clock times."
+            hint="Reminders are sent at your local clock times. Type a city or region to search."
+            options={choices}
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
+            onChange={setTimezone}
             error={fieldErrors.timezone}
-          >
-            {zones.all.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone.replaceAll('_', ' ')}
-              </option>
-            ))}
-          </Select>
+            emptyText="No matching time zones"
+          />
         )}
         <Button type="submit" fullWidth loading={busy}>
           Create account

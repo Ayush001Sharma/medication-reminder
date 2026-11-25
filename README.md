@@ -638,9 +638,21 @@ prefetch links. Settings fail loudly at startup rather than running misconfigure
 
 The `frontend/` folder is a single-page app: React 18, Vite, TypeScript, Tailwind CSS 4, React Router, Recharts, tested with
 Vitest and React Testing Library. Fonts (DM Sans for text, Fraunces for headings) are self-hosted from `@fontsource`
-packages: nothing is loaded from a CDN. This is the **foundation**: app shell, authentication, role-based routing and the
-component library, plus two real pages (a patient's *Today* and a caregiver/doctor's *Patients*). *Medications*, *Sharing*,
-*Activity* and *Invitations* are routed placeholders waiting to be built on top of it.
+packages: nothing is loaded from a CDN. It has the app shell, authentication, role-based routing, the component library and
+the **patient screens** (below). A caregiver/doctor's *Patients* page exists; *Sharing*, *Activity* and *Invitations* are
+routed placeholders waiting to be built.
+
+**Patient screens.**
+
+| Screen | What it does |
+|---|---|
+| Register / Sign in | Registration asks for a timezone, defaulting to the browser's (`Intl.DateTimeFormat().resolvedOptions().timeZone`), in a searchable select of IANA zones (type a city, country or GMT offset; old names such as "Calcutta" also match). API field errors, such as an invalid timezone, appear under the field |
+| Today | Today's doses in the patient's local time, grouped Morning / Afternoon / Evening / Night, each with medication, dosage, local time and a status chip (Pending, Reminded, Taken, Missed, Skipped, Taken late). **Taken** and **Skip** update the screen at once and roll back with a "Try again" toast if the server refuses. A `409` (for example skipping a dose that was already taken) shows a plain-language message and refreshes the list without a loading flash. Calm empty state when nothing is scheduled |
+| Upcoming | The next 7 days of doses, grouped by day |
+| Medications | Medications with their schedules; **Add medication** (name, dosage, dates, time chips, day-of-week toggles), **Edit**, and **Stop** (deactivate) behind a confirmation dialog. API validation errors are shown on the matching field |
+
+Every page has a loading skeleton, an error state with a retry button, and a responsive layout (bottom tab bar on phones, top
+navigation on wider screens).
 
 **Run it (macOS / Linux).** Needs Node.js 22 or newer and the backend running.
 
@@ -709,15 +721,19 @@ Status chips always carry a word ("Missed", "Taken late"), never colour alone.
 
 **Tests** (`npm test`): the API client (refresh-once, single-flight, logout on every refresh-failure path, no refresh for
 sign-in calls, error messages, `VITE_API_BASE_URL`), the token store (never `localStorage`), route protection for every role,
-the auth provider, the shell and navigation per role, every component, each page's loading / empty / error states, the design
+the auth provider, the shell and navigation per role, every component, each page's loading / empty / error states, the Today page's actions
+(optimistic update, rollback, 409, double-click guard), the medication form's validation, the design
 tokens, and an axe-core accessibility audit of the shell, forms, dialog and pages. Contrast is not testable in jsdom, so it is
 verified from the tokens and in a real browser.
 
 **CI.** The `frontend` job in `.github/workflows/tests.yml` runs `npm ci`, lint, type-check, tests and build on every push.
 
-**Frontend limitations.** Medication management, sharing, the audit log, invitations, dose actions (mark taken/skip) and the
-per-patient report view are not built yet; the API for all of them exists. There is no server-side sign-out (the backend has
-no token blacklist), so signing out forgets the tokens in the browser only. The production build is not deployed anywhere.
+**Frontend limitations.** Sharing, the audit log, invitations and the per-patient report view are not built yet; the API for
+all of them exists. **There is no real undo** for a dose: the API treats taken and skipped as final (a taken dose cannot be
+skipped, and nothing reverses it), so instead of a fake undo the app rolls back and offers "Try again" when a request fails.
+A stopped medication cannot be reactivated (the API has no such action); add it again as a new medication. There is no
+server-side sign-out (the backend has no token blacklist), so signing out forgets the tokens in the browser only. The
+production build is not deployed anywhere.
 
 ## Project layout
 

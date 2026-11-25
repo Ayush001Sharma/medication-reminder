@@ -134,6 +134,8 @@ describe('source rules', () => {
     const allowed = [
       join('src', 'components', 'ui', 'Hint.tsx'),
       join('src', 'components', 'ui', 'Input.tsx'), // placeholder inside the white input
+      join('src', 'components', 'ui', 'Textarea.tsx'), // placeholder inside the white textarea
+      join('src', 'components', 'ui', 'Combobox.tsx'), // placeholder and option detail inside the white field and list
       join('src', 'components', 'ui', 'EmptyState.tsx'), // white panel
       join('src', 'components', 'layout', 'UserMenu.tsx'), // white dropdown
       join('src', 'pages', 'AuthLayout.tsx'), // white card

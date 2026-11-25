@@ -89,6 +89,9 @@ describe('the real route table', () => {
     ['caregiver', '/sharing'],
     ['doctor', '/medications'],
     ['doctor', '/activity'],
+    ['caregiver', '/upcoming'],
+    ['doctor', '/medications/new'],
+    ['caregiver', '/medications/1/edit'],
   ] as const)('blocks a %s from %s', (role, route) => {
     visit(role, route)
     expect(screen.getByRole('heading', { name: /not available to your account/i })).toBeInTheDocument()
@@ -96,7 +99,18 @@ describe('the real route table', () => {
 
   it('"/" sends each role to its own home', () => {
     visit('patient', '/')
-    expect(screen.getByRole('heading', { name: /hello, asha/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument()
+  })
+
+  it('lets a patient reach every patient page, including the medication form routes', () => {
+    for (const [route, heading] of [
+      ['/today', 'Today'], ['/upcoming', 'Upcoming'], ['/medications', 'Medications'],
+      ['/medications/new', 'Add medication'], ['/medications/1/edit', 'Edit medication'], ['/sharing', 'Sharing'], ['/activity', 'Activity'],
+    ] as const) {
+      const { unmount } = visit('patient', route)
+      expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
+      unmount()
+    }
   })
 
   it('shows a not-found page inside the shell for an unknown address', () => {

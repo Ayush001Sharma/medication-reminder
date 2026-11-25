@@ -15,18 +15,29 @@ export class ApiError extends Error {
     this.retryAfter = retryAfter
   }
 
-  /** Django REST Framework field errors ({ email: ["..."] }) as { email: "..." }. */
+  /**
+   * Django REST Framework field errors as { field: "first message" }. Handles the nested shapes DRF uses for
+   * list fields, e.g. { times_of_day: { "0": ["Time has wrong format."] } }.
+   */
   get fieldErrors(): Record<string, string> {
     const result: Record<string, string> = {}
     if (typeof this.data === 'object' && this.data !== null && !Array.isArray(this.data)) {
       for (const [field, value] of Object.entries(this.data as Record<string, unknown>)) {
         if (field === 'detail') continue
-        const first = Array.isArray(value) ? value[0] : value
-        if (typeof first === 'string') result[field] = first
+        const message = firstMessage(value)
+        if (message) result[field] = message
       }
     }
     return result
   }
+}
+
+/** The first human-readable message inside a string, a list or a nested object of errors. */
+export function firstMessage(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map(firstMessage).find(Boolean)
+  if (typeof value === 'object' && value !== null) return Object.values(value).map(firstMessage).find(Boolean)
+  return undefined
 }
 
 function messageFor(status: number, data: unknown, retryAfter: number | null): string {
@@ -40,10 +51,8 @@ function messageFor(status: number, data: unknown, retryAfter: number | null): s
   if (typeof data === 'object' && data !== null) {
     const record = data as Record<string, unknown>
     if (typeof record.detail === 'string') return record.detail
-    for (const value of Object.values(record)) {
-      const first = Array.isArray(value) ? value[0] : value
-      if (typeof first === 'string') return first
-    }
+    const message = firstMessage(record)
+    if (message) return message
   }
   return `The request failed (${status}).`
 }

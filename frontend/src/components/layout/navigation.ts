@@ -12,6 +12,7 @@ export function navFor(role: Role): NavItem[] {
   if (role === 'patient') {
     return [
       { to: '/today', label: 'Today', icon: 'today' },
+      { to: '/upcoming', label: 'Upcoming', icon: 'upcoming' },
       { to: '/medications', label: 'Medications', icon: 'medications' },
       { to: '/sharing', label: 'Sharing', icon: 'sharing' },
       { to: '/activity', label: 'Activity', icon: 'activity' },

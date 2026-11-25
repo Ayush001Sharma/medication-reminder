@@ -247,6 +247,34 @@ describe('Toasts', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not save.')
   })
 
+  it('can carry an action button: clicking it dismisses the toast and runs the action once', async () => {
+    const onClick = vi.fn()
+    function WithAction() {
+      const toast = useToast()
+      return <button onClick={() => toast.error('Could not save.', { action: { label: 'Try again', onClick } })}>go</button>
+    }
+    render(<ToastProvider><WithAction /></ToastProvider>)
+    await userEvent.click(screen.getByText('go'))
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not save.')
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('a toast with an action stays longer, so there is time to use it', () => {
+    vi.useFakeTimers()
+    function WithAction() {
+      const toast = useToast()
+      return <button onClick={() => toast.info('Heads up', { action: { label: 'Open', onClick: () => undefined } })}>go</button>
+    }
+    render(<ToastProvider><WithAction /></ToastProvider>)
+    act(() => screen.getByText('go').click())
+    act(() => vi.advanceTimersByTime(9000))
+    expect(screen.getByText('Heads up')).toBeInTheDocument() // a plain info toast would be gone after 6 s
+    act(() => vi.advanceTimersByTime(1100))
+    expect(screen.queryByText('Heads up')).not.toBeInTheDocument()
+  })
+
   it('can be dismissed by hand', async () => {
     mount()
     await userEvent.click(screen.getByText('ok'))

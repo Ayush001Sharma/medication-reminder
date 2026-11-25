@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../api/client'
 import { expectNoA11yViolations } from '../test/axe'
 import type { AuthValue } from '../auth/context'
+import { timezoneOptions } from '../lib/timezones'
 import { authValue, makeUser, renderWithProviders } from '../test/helpers'
 import { RegisterPage } from './RegisterPage'
 
@@ -19,17 +20,24 @@ function renderRegister(register: AuthValue['register']) {
   )
 }
 
-const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+const detected = timezoneOptions().detected
+const timezoneBox = () => screen.getByRole('combobox', { name: 'Your timezone' })
+
+async function chooseTimezone(search: string, name: RegExp) {
+  await userEvent.click(timezoneBox())
+  await userEvent.keyboard(`{Control>}a{/Control}${search}`)
+  await userEvent.click(screen.getByRole('option', { name }))
+}
 
 describe('RegisterPage', () => {
   it('registers a patient with their timezone, defaulting to the browser timezone', async () => {
     const register = vi.fn<AuthValue['register']>().mockResolvedValue(makeUser('patient'))
     renderRegister(register)
-    expect(screen.getByLabelText('Your timezone')).toHaveValue(detected)
+    expect(timezoneBox()).toHaveValue(detected.replaceAll('_', ' ')) // the browser's own timezone
     await userEvent.type(screen.getByLabelText('Full name'), ' Asha Patel ')
     await userEvent.type(screen.getByLabelText('Email'), 'asha@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'a-long-password')
-    await userEvent.selectOptions(screen.getByLabelText('Your timezone'), 'Asia/Kolkata')
+    await chooseTimezone('kolkata', /Asia\/Kolkata/)
     await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
     expect(register).toHaveBeenCalledWith({
       fullName: 'Asha Patel',
@@ -43,11 +51,11 @@ describe('RegisterPage', () => {
 
   it('only asks for a timezone when registering as a patient', async () => {
     renderRegister(vi.fn<AuthValue['register']>())
-    expect(screen.getByLabelText('Your timezone')).toBeInTheDocument()
+    expect(timezoneBox()).toBeInTheDocument()
     await userEvent.selectOptions(screen.getByLabelText('I am a'), 'doctor')
-    expect(screen.queryByLabelText('Your timezone')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Your timezone' })).not.toBeInTheDocument()
     await userEvent.selectOptions(screen.getByLabelText('I am a'), 'patient')
-    expect(screen.getByLabelText('Your timezone')).toBeInTheDocument()
+    expect(timezoneBox()).toBeInTheDocument()
   })
 
   it('sends a caregiver to the patients page', async () => {
@@ -72,6 +80,30 @@ describe('RegisterPage', () => {
     expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByLabelText('Password')).toHaveAccessibleDescription(/too common/)
     expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled()
+  })
+
+  it('is searchable: typing narrows the list of IANA zones, and a UTC offset works too', async () => {
+    renderRegister(vi.fn())
+    await userEvent.click(timezoneBox())
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(300)
+    await userEvent.keyboard('{Control>}a{/Control}new york')
+    expect(screen.getByRole('option', { name: /America\/New York/ })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Asia\/Kolkata/ })).not.toBeInTheDocument()
+    await userEvent.keyboard('{Control>}a{/Control}+5:30')
+    expect(screen.getByRole('option', { name: /Asia\/Kolkata/ })).toBeInTheDocument()
+  })
+
+  it('shows the API\'s timezone error under the timezone field', async () => {
+    const error = new ApiError(400, "'Mars/Phobos' is not a valid IANA timezone (e.g. Asia/Kolkata).", {
+      timezone: ["'Mars/Phobos' is not a valid IANA timezone (e.g. Asia/Kolkata)."],
+    })
+    renderRegister(vi.fn<AuthValue['register']>().mockRejectedValue(error))
+    await userEvent.type(screen.getByLabelText('Email'), 'a@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'a-long-password')
+    await userEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(await screen.findByText(/not a valid IANA timezone/)).toBeInTheDocument()
+    expect(timezoneBox()).toHaveAttribute('aria-invalid', 'true')
+    expect(timezoneBox()).toHaveAccessibleDescription(/not a valid IANA timezone/)
   })
 
   it('shows a general message for errors that are not about a field', async () => {

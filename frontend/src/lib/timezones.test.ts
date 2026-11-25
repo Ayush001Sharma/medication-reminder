@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { canonicalZone, timezoneOptions } from './timezones'
+import { canonicalZone, formerNames, timezoneChoices, timezoneOptions } from './timezones'
 
 describe('timezones', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -8,6 +8,15 @@ describe('timezones', () => {
     expect(canonicalZone('Asia/Calcutta')).toBe('Asia/Kolkata')
     expect(canonicalZone('Europe/Kiev')).toBe('Europe/Kyiv')
     expect(canonicalZone('America/New_York')).toBe('America/New_York')
+  })
+
+  it('knows the former names of renamed zones, so they can still be searched', () => {
+    expect(formerNames('Asia/Kolkata')).toEqual(['Asia/Calcutta'])
+    expect(formerNames('Europe/Kyiv')).toEqual(['Europe/Kiev'])
+    expect(formerNames('Europe/London')).toEqual([])
+    const kolkata = timezoneChoices().find((choice) => choice.value === 'Asia/Kolkata')
+    expect(kolkata?.keywords).toContain('Calcutta')
+    expect(kolkata?.label).toBe('Asia/Kolkata') // the former name is searched, never displayed
   })
 
   it('offers Asia/Kolkata (never the legacy Asia/Calcutta), UTC, no duplicates, sorted', () => {
