@@ -297,12 +297,11 @@ pytest --cov --cov-report=term-missing
 cd frontend && npm ci && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
-**A note on Redis and the tests (verified).** The README says Redis is needed only for one integration test that
-skips itself when Redis is unreachable. I stopped Redis and ran `tests/test_skeleton.py` and `tests/test_health.py`:
-**one test skipped** (`test_real_redis_and_database`, as the README says) but **one test failed**
-(`tests/test_skeleton.py::test_health_ok`, `assert 503 == 200`, because `/health/` really pings Redis). So a
-running Redis is needed to get a fully green suite; the README sentence is slightly out of date. (CI always has
-a Redis container.)
+**A note on Redis and the tests (verified).** Exactly two tests use the real Redis from `REDIS_URL`. I stopped Redis
+and ran the whole backend suite: **1 failed, 458 passed, 1 skipped**. `tests/test_health.py::test_real_redis_and_database`
+skips itself, but `tests/test_skeleton.py::test_health_ok` **fails** (`assert 503 == 200`) because `/health/` really
+pings Redis and answers 503 when it is down. The README now says exactly this. So a running Redis is needed for a fully
+green suite (CI always has a Redis container).
 
 ### When something is not working: a checklist
 

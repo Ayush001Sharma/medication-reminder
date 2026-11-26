@@ -74,8 +74,8 @@ statement is an inference, it says so.
 
 | Limitation | Evidence | What I would do |
 |---|---|---|
-| **README statement about Redis in tests is slightly wrong** | With Redis stopped, `test_real_redis_and_database` skips but `tests/test_skeleton.py::test_health_ok` **fails** (503, verified in chapter 14) | Correct the README, or make that test skip when Redis is unreachable |
-| **One frontend test is timing sensitive** | In 1 of 9 full-suite runs `ReportPage` "asks for the default range" failed after about 1,053 ms, near the 1 s default `findBy` timeout; 8 later full runs and 6 isolated runs passed | Likely the lazily loaded chart chunk under load. Raise the timeout for lazy-loaded elements or preload the chunk in tests. Reproduce under CPU stress first |
+| **One test needs a running Redis** | With Redis stopped, `test_real_redis_and_database` skips but `tests/test_skeleton.py::test_health_ok` **fails** (503, verified in chapter 14); the README now documents this | Optionally make `test_health_ok` skip when Redis is unreachable |
+| **A frontend test that was timing sensitive (fixed)** | `ReportPage` "asks for the default range" failed once in 9 runs near the 1 s `findBy` timeout; the cause was the first lazy import of Recharts (about 747 ms alone, 83 ms afterwards) | Fixed by preloading both chart modules in a `beforeAll`; 15 of 15 full runs passed. Listed so you can tell the story, not as an open problem |
 | **Index plan tests copy the query shapes** (`tests/test_indexes.py`) | The tests define their own `claim_query()` etc. rather than importing the real ones | Share the query builders so a change to the application query changes the test |
 | **No browser end-to-end tests in CI** | The real-browser checks (axe with colour contrast, layouts) were run by hand against the real backend | Add Playwright to CI |
 | **Performance numbers are from one machine** | `EXPLAIN` results in chapter 11 are from a scratch database | Keep a repeatable benchmark script in the repository and track it over time |
@@ -96,8 +96,8 @@ A reasoned order is more convincing than a list:
    The channel abstraction exists so only the sending class changes.
 5. **A deployment pipeline with staging, backups and dependency scanning.** *Why:* turns "tests pass" into
    "software runs safely".
-6. **Fix the small test-quality issues** (the README Redis note, the timing-sensitive frontend test, sharing the
-   index query builders). *Why:* they are quick, and a trusted test suite is what lets you move fast.
+6. **Fix the small test-quality issues** (make `test_health_ok` skip without Redis, share the
+   index query builders; the README Redis note and the timing-sensitive frontend test are already fixed). *Why:* they are quick, and a trusted test suite is what lets you move fast.
 7. **Product features:** invitation emails, per-medication reminder rules, a correction flow instead of silent
    changes, caregiver reminders.
 

@@ -382,9 +382,15 @@ public knowledge. Never seed a real deployment.
 
 ## Running the tests
 
-Tests need PostgreSQL (the role from `DATABASE_URL` must be allowed to create databases). Redis is needed only for
-one integration test, which skips itself when Redis is unreachable. Rate-limit counters use an in-memory cache in
-tests.
+Tests need PostgreSQL (the role from `DATABASE_URL` must be allowed to create databases). Rate-limit counters use an
+in-memory cache in tests. Exactly two tests touch Redis, and both use the Redis from `REDIS_URL`:
+
+* `tests/test_health.py::test_real_redis_and_database` skips itself when Redis is unreachable.
+* `tests/test_skeleton.py::test_health_ok` calls `/health/`, which really pings Redis. With Redis stopped, `/health/`
+  returns 503 and this test **fails** (`assert 503 == 200`); it does not skip.
+
+With Redis stopped, a full run therefore ends with 1 failed, 458 passed, 1 skipped. Start Redis (for example
+`redis-server --daemonize yes`) for a fully green run. CI always provides a Redis container.
 
 ```bash
 pytest                                  # everything

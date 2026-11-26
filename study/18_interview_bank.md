@@ -389,7 +389,7 @@ Use Django's in-memory email backend in tests and assert on the outbox, and simu
 **Follow-up:** Real provider tests? Only in a staging environment with a sandbox account. (Ch 7, 13)
 
 ### Q70. What would you add to testing next?
-Browser end-to-end tests, load tests of the claim query at scale, and automated mutation testing. I would also fix the README statement about running tests without Redis.
+Browser end-to-end tests, load tests of the claim query at scale, and automated mutation testing. I would also make `test_health_ok` skip when Redis is unreachable, because today it fails with a 503.
 
 **Follow-up:** Why load tests? Measurements on one scratch database do not show behaviour under contention. (Ch 16)
 

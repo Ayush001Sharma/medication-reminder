@@ -88,7 +88,7 @@ If you can truthfully add [something you personally changed, decided or fixed], 
 
 **"So can you code without AI?"** Answer truthfully about your own skill. A good honest line: "I am a fresher and I use AI tools the way many developers do. I am strengthening my fundamentals, which is why I studied this system line by line. I can write [the things you really can] unaided." Do not overstate. If a live coding round follows, they will see.
 
-**"What did the AI get wrong?"** This is a good question to have a real answer for. Real examples from this project's own history: a test that depended on database statistics and passed or failed by luck, fixed in commits `20a5e92` and `6b72e1d`; a hidden race in the Celery test guard that only Python 3.12 timing exposed, fixed in `013676b`; a README claim about running tests without Redis that is not fully accurate. Showing that you found and corrected problems demonstrates judgement.
+**"What did the AI get wrong?"** This is a good question to have a real answer for. Real examples from this project's own history: a test that depended on database statistics and passed or failed by luck, fixed in commits `20a5e92` and `6b72e1d`; a hidden race in the Celery test guard that only Python 3.12 timing exposed, fixed in `013676b`; a README claim about which tests need Redis that was not fully accurate (corrected later), and a frontend test that timed out once because of a lazily loaded chart (fixed by preloading it). Showing that you found and corrected problems demonstrates judgement.
 
 **"How did you verify the AI's work?"** Tests (460 backend, 450 frontend), coverage with a floor, a CI matrix, mutation experiments (break the code on purpose and check that a test fails), EXPLAIN measurements on a million-row table, and repeated runs to prove stability.
 
@@ -126,7 +126,7 @@ If a line is empty, that is useful information: it tells you where to practise b
    **A:** Name decisions that are in the brief: the stack, UTC storage with per-patient IANA timezones, never twice and never missed, the consent model, email as the channel with an interface for others, and no real SMS or WhatsApp. Then add any specific choice you really made.
 
 3. **Q: What did the AI get wrong, and how did you find out?**
-   **A:** Pick real examples: the planner-dependent index test that flaked, the unlocked flag race that failed only on Python 3.12, and the README Redis statement. Say they were found by tests, CI and review, which is the point of having them.
+   **A:** Pick real examples: the planner-dependent index test that flaked, the unlocked flag race that failed only on Python 3.12, the README Redis statement, and the lazy-chart frontend test. Say they were found by tests, CI and review, which is the point of having them.
 
 4. **Q: How do you verify code you did not type?**
    **A:** Tests at several levels, coverage with a CI floor, real-thread concurrency tests, mutation experiments, EXPLAIN measurements and repeated runs. Reading and explaining it back is part of verification too.

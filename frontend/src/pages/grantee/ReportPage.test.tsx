@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ApiError, api } from '../../api/client'
 import type { AdherenceReport, AdherenceTotals, MedicationAdherence } from '../../api/types'
 import { expectNoA11yViolations } from '../../test/axe'
@@ -30,6 +30,15 @@ const render = (route = '/patients/7') =>
     </Routes>,
     { route, auth: authValue(makeUser('doctor')) },
   )
+
+// ReportPage loads its two chart components with React.lazy, and they pull in Recharts. The first dynamic import of
+// Recharts in a test worker takes several hundred milliseconds (about 750 ms measured), which is close to the
+// 1 second default of findBy*, so whichever test first showed a chart was timing sensitive. Waiting for the real
+// condition, "the chart modules are loaded", here means every test only waits for rendering. The generous hook
+// timeout is only an upper bound for a slow machine; it does not delay a normal run.
+beforeAll(async () => {
+  await Promise.all([import('../../components/charts/AdherenceRing'), import('../../components/charts/MedicationBars')])
+}, 30_000)
 
 afterEach(() => vi.restoreAllMocks())
 

@@ -347,11 +347,13 @@ accessibility audit, a design-token test that fails on stray colours, and a test
 without the demo flag and fails if any demo text is in the output (chapter 15). Contrast and layout were also
 checked in a real browser with Playwright against the real backend (those scripts are not part of the repository).
 
-**An honest observation made while writing this guide:** in one of nine full frontend runs a test
-(`ReportPage: asks for the default range`) failed after about 1,053 ms, close to the default 1 second `findBy`
-timeout; the next eight full runs and six isolated runs passed. The likely cause is the lazily loaded chart chunk
-taking longer under load, but I have not proven it. It is listed in chapter 16 as a timing-sensitive test to
-reproduce under CPU stress and fix, not something to retry and ignore.
+**A frontend flaky test, found and fixed.** In one of nine full frontend runs the test `ReportPage: asks for the default
+range` failed after about 1,053 ms, close to the 1 second default timeout of `findBy`. The cause was then proven: the page loads
+its charts with `React.lazy`, and the first dynamic import of Recharts in a test worker took about 747 ms when the test ran alone
+(the later tests took about 83 ms), so under load the first test that showed a chart could exceed the second. The fix waits for
+the real condition instead of raising a timeout: a `beforeAll` in `ReportPage.test.tsx` awaits the import of both chart modules,
+so every test only waits for rendering (the first test now takes about 133 ms). After the fix the whole frontend suite passed
+15 times out of 15.
 
 ## 10. Running the tests
 
