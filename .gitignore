@@ -12,3 +12,22 @@ celerybeat-schedule*
 .coverage
 coverage.xml
 htmlcov/
+
+# Local services and tool output
+dump.rdb
+*.rdb
+
+# Local AI-tool configuration and notes (not part of the project)
+.claude/
+CLAUDE.md
+AGENTS.md
+.cursorrules
+.cursor/
+.windsurfrules
+.github/copilot-instructions.md
+
+# Local study notes, verification screenshots and scratch output
+study/
+screenshots/
+verification-screenshots/
+*.log

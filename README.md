@@ -833,6 +833,30 @@ on Today. There is no undo for a dose, a stopped medication cannot be reactivate
 (the patient invites again): those are the API's rules. There is no server-side sign-out (the backend has no token blacklist), so
 signing out forgets the tokens in the browser only. The production build is not deployed anywhere.
 
+## Project conventions
+
+These are the rules the codebase is written to, and what to keep in mind when changing it.
+
+- **Time.** Every datetime is stored in UTC. Each patient has an IANA timezone (for example `Asia/Kolkata`), and
+  schedules are defined in the patient's local wall-clock time and converted with `zoneinfo`, so they stay correct
+  across daylight saving changes.
+- **Reminder delivery.** A reminder must never be sent twice and never be missed. This is enforced with database
+  constraints, row locking and idempotent tasks, not with timing assumptions (see
+  [How reminders avoid duplicates and misses](#how-reminders-avoid-duplicates-and-misses)).
+- **Roles and access.** Roles are `patient`, `caregiver` and `doctor`. A caregiver or doctor sees a patient's data only
+  after the patient grants access, and the patient can revoke it at any time.
+- **Notifications.** Email is the real channel (the console backend is used in development). Channels sit behind a
+  small interface in `notifications/channels.py` so SMS or WhatsApp can be added later; the SMS and WhatsApp channels
+  in this repository only write to the log and never contact a provider.
+- **Configuration and secrets.** All configuration comes from environment variables. Only `.env.example` (placeholders)
+  is committed; `.env` is git-ignored. Never commit credentials, and do not paste secret values into logs or issues.
+- **Structure.** One Django app per area: `accounts`, `medications`, `scheduling`, `notifications`, `reports`.
+- **Tests.** Every feature has tests, and CI enforces a coverage floor of 95 percent. Keep functions small and add a
+  docstring where the logic is not obvious.
+- **Frontend.** The backend stays API-only; the only backend change the frontend needs is CORS
+  (`CORS_ALLOWED_ORIGINS`). The frontend uses only the design tokens in `frontend/src/index.css` and follows the
+  contrast rules documented there.
+
 ## Project layout
 
 ```
