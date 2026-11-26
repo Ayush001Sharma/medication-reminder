@@ -81,11 +81,12 @@ The `NotificationLog` life cycle (chapter 03) in this context:
 
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> sending: claimed, lease token issued
-    sending --> sending: attempt failed, retry scheduled (back-off)
     sending --> sent: provider accepted
     sending --> failed: gave up after 5 attempts
     sending --> cancelled: dose taken, or too late to be useful
+    note right of sending: a failed attempt stays sending and is retried with back-off
 ```
 
 ## 3. The knobs (all in `config/settings.py`, read through `notifications/conf.py`)

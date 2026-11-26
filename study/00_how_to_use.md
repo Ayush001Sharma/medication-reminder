@@ -43,11 +43,24 @@ Every chapter follows the same shape:
 | `04_auth_and_permissions.md` | Registration, login, JWT, refresh, roles, permission classes, access grants |
 | `05_medications_and_schedules.md` | The medication and schedule models, validation, why times are local |
 | `06_timezones_and_dose_generation.md` | How doses are generated, idempotency, history, Kolkata and New York DST examples |
+| `07_reminder_pipeline.md` | Claim, lease, send, retry, recovery, missed doses, the delivery guarantee |
+| `08_dose_actions_and_email_link.md` | Taken, skip, 409 conflicts, the signed one-click email link |
+| `09_access_sharing_and_audit.md` | Invitations, consent, live access checks, the audit log |
+| `10_reports_and_adherence.md` | The adherence definition, aggregation queries, streaks |
+| `11_performance_and_indexes.md` | Measurements, partial and covering indexes, EXPLAIN |
+| `12_security_privacy_and_config.md` | Rate limits, logging, secrets, CORS, fail-loud configuration |
+| `13_testing_strategy.md` | Test layers, concurrency tests, mutation experiments, flaky-test stories |
+| `14_ci_and_running_locally.md` | GitHub Actions, running everything on your machine |
+| `15_frontend_overview.md` | The React app: API client, tokens, roles, demo mode |
+| `16_limitations_and_next_steps.md` | Honest weaknesses and the improvement plan |
+| `17_concepts_primer.md` | Plain-language glossary of every core concept, with project examples |
+| `18_interview_bank.md` | 80 interview questions with model answers and follow-ups |
+| `19_how_i_built_it.md` | Describing the AI-assisted build truthfully |
+| `20_cheat_sheet.md` | Two-page revision sheet |
 
-The reminder pipeline (claim, lease, retry), the adherence report and the testing strategy are **not** covered
-by these seven chapters yet. Chapter 01 introduces them at overview level, and day 7 of the plan below tells
-you how to read them yourself using the comments at the top of `notifications/services.py` and
-`reports/services.py`, which are unusually good.
+Chapters 07 to 16 go deep on the reminder pipeline, access control, reports, performance, security, testing, CI,
+the frontend and the limitations. Chapters 17 to 20 are the revision material: a concepts primer, the interview
+bank, how to describe the build honestly, and the cheat sheet. Read 17 whenever a word confuses you.
 
 ## Get the project running (so you can try everything)
 
@@ -120,7 +133,7 @@ Plan for about 2 to 3 hours a day. Adjust freely; finishing order matters more t
 | **4** | `04_auth_and_permissions.md` | Register, log in and call `/api/me/` with `curl` (examples are in the README). Decode a token at jwt.io to see its claims. | ...explain access vs refresh tokens, and why a doctor gets 403 on medications but 404 on an ungranted patient. |
 | **5** | `05_medications_and_schedules.md` | Create a medication and a schedule through Swagger. Send invalid data on purpose and read each error. | ...list the validation rules and explain why times are stored as local clock times. |
 | **6** | `06_timezones_and_dose_generation.md` | In the shell, run `local_to_utc` for New York on 7, 8 and 9 March 2026. Run the tests in `scheduling/tests/test_dose_generation.py`. | ...walk through the Kolkata and New York examples and explain idempotency. |
-| **7** | Review, then read the parts not yet covered | Read the docstring at the top of `notifications/services.py` and `reports/services.py`. Do a mock interview: pick 10 questions at random from the chapters. | ...give the 2-minute pitch and answer follow-ups on time zones, concurrency and access control. |
+| **7** | Review with chapters 17 to 20 | Read chapter 19 and fill in its sheet with true statements. Do a mock interview: pick 10 random questions from chapter 18. Read chapter 20 last. | ...give the 2-minute pitch and answer follow-ups on time zones, concurrency and access control. |
 
 ### A daily rhythm that works
 
