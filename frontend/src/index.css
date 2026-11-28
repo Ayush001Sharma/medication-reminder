@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/*
+ * THE ONLY COLOURS IN THE APP. Tailwind's default palette is removed (--color-*: initial), so a class such
+ * as bg-blue-500 simply does not exist. "static" makes every variable available to charts as var(--color-x).
+ *
+ * Contrast (WCAG AA needs 4.5:1 for normal text, 3:1 for large text and UI components), measured:
+ *   ink on cream 12.7, ink on surface 13.6, ink on subtle 11.9, ink on sage-tint 11.4, ink on clay 4.8
+ *   sage-dark on cream 5.6, on surface 6.0, on subtle 5.2, on sage-tint 5.0, surface on sage-dark 6.0
+ *   surface on danger 5.3, danger on cream 5.0, danger on surface 5.3, muted on surface 4.75
+ * which gives these RULES (enforced by src/theme/theme.test.ts):
+ *   - text-muted ONLY on white surfaces (it is 4.44 on cream, 4.13 on subtle: below AA)
+ *   - never use clay or sage (3.4-3.6 on light backgrounds) as TEXT colour, only as fills and borders
+ *   - text on a sage fill does not reach AA, so filled buttons use sage-dark with white text
+ */
+@theme static {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-cream: #faf7f0; /* page background */
+  --color-surface: #ffffff; /* cards, inputs */
+  --color-subtle: #f3efe4; /* quiet fills */
+  --color-sage: #6b8f71; /* brand: accents, charts, control borders (3.6:1 on white) */
+  --color-sage-dark: #4a6b50; /* primary actions, hover, text on light backgrounds */
+  --color-sage-tint: #e4ede3; /* selected / success fill */
+  --color-ink: #2b2f2a; /* body text */
+  --color-muted: #6e756c; /* secondary text, on white surfaces only */
+  --color-line: #e6e1d6; /* decorative borders and dividers */
+  --color-clay: #c98b6b; /* missed / needs attention (fill, with ink text) */
+  --color-danger: #b5483f; /* errors and destructive actions */
+
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+
+  --shadow-*: initial;
+  --shadow-soft: 0 1px 2px rgb(43 47 42 / 0.04), 0 8px 24px rgb(43 47 42 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(43 47 42 / 0.05), 0 16px 40px rgb(43 47 42 / 0.12);
+
+  --animate-fade-in: fade-in 150ms ease-out;
+  --animate-rise: rise 200ms ease-out;
+  --animate-page: page-in 240ms ease-out;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@layer base {
+  /* Tailwind 4 borders default to currentColor: use the token instead. */
+  *, ::after, ::before { border-color: var(--color-line); }
+
+  html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; line-height: 1.2; }
+
+  /* One clear keyboard focus ring everywhere (5.6:1 on cream, 6.0:1 on white). */
+  :focus-visible { outline: 3px solid var(--color-sage-dark); outline-offset: 2px; border-radius: 0.5rem; }
+
+  ::selection { background-color: var(--color-sage-tint); color: var(--color-ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

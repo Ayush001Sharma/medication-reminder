@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Medication reminder</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; max-width: 28rem; margin: 3rem auto; padding: 0 1rem; }
+    button { font: inherit; padding: .6rem 1.2rem; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  {% if dose %}
+    <h1>{{ dose.medication.name }}</h1>
+    <p>{{ dose.medication.dosage }}, scheduled for {{ local|date:"H:i, D j M Y" }} ({{ local|date:"T" }}).</p>
+    {% if dose.status == "taken" %}<p>Recorded as taken{% if dose.taken_late %} (late){% endif %}.</p>
+    {% elif dose.status == "skipped" %}<p>This dose was marked as skipped.</p>
+    {% elif dose.status == "missed" %}<p>This dose was marked as missed. You can still record that you took it.</p>
+    {% endif %}
+  {% endif %}
+  {% if message %}<p{% if state != "ok" %} class="error"{% endif %}>{{ message }}</p>{% endif %}
+  {% if can_confirm %}
+    <form method="post"><button type="submit">Yes, I took it</button></form>
+  {% endif %}
+</body>
+</html>
